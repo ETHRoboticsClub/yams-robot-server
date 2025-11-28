@@ -30,3 +30,9 @@ def slow_move(
             }
         )
         time.sleep(1 / freq)
+
+
+def split_arm_action(action: dict, prefix: str) -> dict:
+    return {
+        k.removeprefix(prefix): v for k, v in action.items() if k.startswith(prefix)
+    }

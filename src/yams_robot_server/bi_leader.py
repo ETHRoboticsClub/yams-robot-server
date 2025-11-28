@@ -24,18 +24,18 @@ logger = logging.getLogger(__name__)
 
 @TeleoperatorConfig.register_subclass("yams_bi_leader")
 @dataclass
-class YamsBiLeaderConfig(TeleoperatorConfig):
+class BiYamsLeaderConfig(TeleoperatorConfig):
     left_arm_port: str
     right_arm_port: str
     gripper_open_pos: int = 2280
     gripper_closed_pos: int = 1670
 
 
-class YamsBiLeader(Teleoperator):
-    config_class = YamsBiLeaderConfig
-    name = "yams_bi_leader"
+class BiYamsLeader(Teleoperator):
+    config_class = BiYamsLeaderConfig
+    name = "bi_yams_leader"
 
-    def __init__(self, config: YamsBiLeaderConfig):
+    def __init__(self, config: BiYamsLeaderConfig):
         super().__init__(config)
         self.config = config
 

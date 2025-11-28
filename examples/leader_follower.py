@@ -18,7 +18,7 @@ leader.connect()
 follower = YamsFollower(follower_config)
 follower.connect()
 
-freq = 200  # Hz
+freq = 50  # Hz
 
 leader_action = leader.get_action()
 slow_move(follower, leader_action)

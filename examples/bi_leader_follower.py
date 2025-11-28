@@ -1,58 +1,42 @@
 import time
 
-import numpy as np
+from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
+from yams_robot_server.bi_leader import BiYamsLeader, BiYamsLeaderConfig
+from yams_robot_server.utils.utils import slow_move, split_arm_action
 
-from yams_robot_server.follower import YamsFollower, YamsFollowerConfig
-from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
-from yams_robot_server.utils.utils import slow_move
-
-follower_config_left = YamsFollowerConfig(
-    port="can0",
+bi_follower_config = BiYamsFollowerConfig(
+    left_arm_port="can0",
+    right_arm_port="can1",
 )
 
-follower_config_right = YamsFollowerConfig(
-    port="can1",
+bi_leader_config = BiYamsLeaderConfig(
+    left_arm_port="/dev/ttyACM1",
+    right_arm_port="/dev/ttyACM2",
 )
-leader_config_left = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
-leader_config_right = YamsLeaderConfig(port="/dev/ttyACM2", side="right")
 
-leader_left = YamsLeader(leader_config_left)
-leader_right = YamsLeader(leader_config_right)
-leader_left.connect()
-leader_right.connect()
+bi_leader = BiYamsLeader(bi_leader_config)
+bi_leader.connect()
 
-follower_left = YamsFollower(follower_config_left)
-follower_right = YamsFollower(follower_config_right)
-follower_left.connect()
-follower_right.connect()
+bi_follower = BiYamsFollower(bi_follower_config)
+bi_follower.connect()
 
-freq = 200  # Hz
+freq = 100  # Hz
 
-leader_action_left = leader_left.get_action()
-leader_action_right = leader_right.get_action()
-slow_move(follower_left, leader_action_left)
-slow_move(follower_right, leader_action_right)
+bi_leader_action = bi_leader.get_action()
+
+slow_move(bi_follower.left_arm, split_arm_action(bi_leader_action, "left_"))
+slow_move(bi_follower.right_arm, split_arm_action(bi_leader_action, "right_"))
 
 try:
     while True:
-        leader_action_left = leader_left.get_action()
-        leader_action_right = leader_right.get_action()
-        print({key: f"{value:.2f}" for key, value in leader_action_left.items()})
-        print({key: f"{value:.2f}" for key, value in leader_action_right.items()})
-        follower_left.send_action(leader_action_left)
-        follower_right.send_action(leader_action_right)
+        bi_leader_action = bi_leader.get_action()
+        print({key: f"{value:.2f}" for key, value in bi_leader_action.items()})
+        bi_follower.send_action(bi_leader_action)
         time.sleep(1 / freq)
 except KeyboardInterrupt:
     print("\nStopping teleop...")
 finally:
-    slow_move(
-        follower_left, {f"{name}.pos": 0.0 for name in follower_left.config.joint_names}
-    )
-    slow_move(
-        follower_right,
-        {f"{name}.pos": 0.0 for name in follower_right.config.joint_names},
-    )
-    leader_left.disconnect()
-    leader_right.disconnect()
-    follower_left.disconnect()
-    follower_right.disconnect()
+    for arm in [bi_follower.left_arm, bi_follower.right_arm]:
+        slow_move(arm, {f"{name}.pos": 0.0 for name in arm.config.joint_names})
+    bi_leader.disconnect()
+    bi_follower.disconnect()
