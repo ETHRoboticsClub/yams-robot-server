@@ -60,7 +60,7 @@ def compute_offsets(
 
 
 def main():
-    leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="right")
+    leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
     leader = YamsLeader(leader_config)
     leader.connect()
 

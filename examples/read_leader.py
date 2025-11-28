@@ -2,7 +2,7 @@ import time
 
 from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
 
-leader_config = YamsLeaderConfig(port="/dev/ttyACM0")
+leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
 
 leader = YamsLeader(leader_config)
 leader.connect()

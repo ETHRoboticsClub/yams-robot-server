@@ -19,7 +19,7 @@ class YamsLeaderConfig(TeleoperatorConfig):
     port: str
     gripper_open_pos: int = 2280
     gripper_closed_pos: int = 1670
-    calibration_path: str = "src/yams_robot_server"
+    calibration_path: str = "src/yams_robot_server/calibration"
     side: str = "right"
 
 
@@ -42,12 +42,15 @@ class YamsLeader(Teleoperator):
                 "gripper": Motor(7, "xl330-m077", MotorNormMode.DEGREES),
             },
         )
-        with open(
+        calibration_path = (
             Path(self.config.calibration_path)
-            / f"leader_calibration_{self.config.side}.yaml",
-            "r",
-        ) as f:
-            self.calibration = yaml.safe_load(f)
+            / f"leader_calibration_{self.config.side}.yaml"
+        )
+        if calibration_path.exists():
+            with open(calibration_path, "r") as f:
+                self.calibration = yaml.safe_load(f)
+        else:
+            self.calibration = None
 
     @property
     def action_features(self) -> dict[str, type]:
@@ -106,6 +109,11 @@ class YamsLeader(Teleoperator):
     def get_action(self) -> dict[str, float]:
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
+
+        if self.calibration is None:
+            raise ValueError(
+                "Calibration not found. Run `compute_offsets.py` to generate it."
+            )
 
         start = time.perf_counter()
 
