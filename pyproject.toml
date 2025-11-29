@@ -18,3 +18,8 @@ dependencies = [
 
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
+
+[dependency-groups]
+dev = [
+    "opencv-python>=4.12.0.88",
+]

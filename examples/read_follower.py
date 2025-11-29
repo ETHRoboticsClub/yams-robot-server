@@ -3,7 +3,7 @@ import time
 from yams_robot_server.follower import YamsFollower, YamsFollowerConfig
 
 follower_config = YamsFollowerConfig(
-    port="can0",
+    port="can_follower_r",
 )
 follower = YamsFollower(follower_config)
 

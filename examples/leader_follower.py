@@ -7,7 +7,7 @@ from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
 from yams_robot_server.utils.utils import slow_move
 
 follower_config = YamsFollowerConfig(
-    port="can0",
+    port="can_follower_l",
 )
 
 leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="left")
