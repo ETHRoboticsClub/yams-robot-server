@@ -7,10 +7,10 @@ from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
 from yams_robot_server.utils.utils import slow_move
 
 follower_config = YamsFollowerConfig(
-    port="can0",
+    port="can_follower_l",
 )
 
-leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
+leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="left")
 
 leader = YamsLeader(leader_config)
 leader.connect()
@@ -26,6 +26,8 @@ slow_move(follower, leader_action)
 try:
     while True:
         leader_action = leader.get_action()
+        if leader_action is None:
+            continue
         print({key: f"{value:.2f}" for key, value in leader_action.items()})
         follower.send_action(leader_action)
         time.sleep(1 / freq)

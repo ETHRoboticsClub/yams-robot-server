@@ -92,9 +92,13 @@ class BiYamsLeader(Teleoperator):
         action_dict = {}
 
         left_action = self.left_arm.get_action()
+        if left_action is None:
+            return None
         action_dict.update({f"left_{key}": value for key, value in left_action.items()})
 
         right_action = self.right_arm.get_action()
+        if right_action is None:
+            return None
         action_dict.update(
             {f"right_{key}": value for key, value in right_action.items()}
         )
