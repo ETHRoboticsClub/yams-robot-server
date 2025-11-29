@@ -157,21 +157,10 @@ class ZEDCamera(Camera):
             raise RuntimeError(f"{self} failed to grab frame.")
 
         image_zed = sl.Mat()
-        target_mode = color_mode if color_mode else self.color_mode
-        if target_mode == ColorMode.RGB:
-            self.zed.retrieve_image(
-                image_zed, sl.VIEW.LEFT, sl.MEM.CPU, sl.MAT_TYPE.U8_C3
-            )
-        else:
-            self.zed.retrieve_image(
-                image_zed, sl.VIEW.LEFT, sl.MEM.CPU, sl.MAT_TYPE.U8_C4
-            )
+
+        self.zed.retrieve_image(image_zed, sl.VIEW.LEFT, sl.MEM.CPU, sl.MAT_TYPE.U8_C3)
 
         frame = image_zed.get_data()
-        if target_mode == ColorMode.BGR and frame.shape[2] == 4:
-            # remove alpha
-            frame = frame[:, :, :3]
-
         processed_frame = self._postprocess_image(frame, color_mode)
 
         read_duration_ms = (time.perf_counter() - start_time) * 1e3
