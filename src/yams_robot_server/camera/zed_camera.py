@@ -75,6 +75,7 @@ class ZEDCamera(Camera):
         self.zed = sl.Camera()
 
         init_params = sl.InitParameters()
+        init_params.set_from_camera_id(self.camera_id)
         init_params.camera_resolution = self._get_resolution()
         init_params.camera_fps = self.fps if self.fps else 30
         init_params.depth_mode = self._get_depth_mode()

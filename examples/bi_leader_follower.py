@@ -1,18 +1,30 @@
 import time
 import cv2
 
+from lerobot.cameras import ColorMode, Cv2Rotation
+from lerobot.cameras.opencv import OpenCVCameraConfig
+
 from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from yams_robot_server.bi_leader import BiYamsLeader, BiYamsLeaderConfig
-from yams_robot_server.camera import ZEDCameraConfig, ZEDCamera
+from yams_robot_server.camera import ZEDCameraConfig, ZEDCamera, find_opencv_cameras
 from yams_robot_server.utils.utils import slow_move, split_arm_action
 
-available_cameras = ZEDCamera.find_cameras()
-if not available_cameras or len(available_cameras) == 0:
+available_zed_cameras = ZEDCamera.find_cameras()
+if not available_zed_cameras:
     print("No ZED cameras found.")
-else:
-    print(f"Available ZED cameras: {available_cameras}")
 
-zed_cam_id = available_cameras[0]["id"]
+# get first camera for now - generalise later
+zed_cam_id = available_zed_cameras[0]["id"]
+
+available_opencv_cameras = find_opencv_cameras()
+if not available_opencv_cameras:
+    print("No OpenCV cameras found.")
+
+# get both wrist cameras for now
+left_wrist_camera = available_opencv_cameras[0]
+left_wrist_path = left_wrist_camera["id"]
+right_wrist_camera = available_opencv_cameras[1]
+right_wrist_path = right_wrist_camera["id"]
 
 
 bi_follower_config = BiYamsFollowerConfig(
@@ -24,9 +36,21 @@ bi_follower_config = BiYamsFollowerConfig(
             fps=30,
             width=640,
             height=480,
-            rotation="NO_ROTATION",
-            color_mode="RGB",
-        )
+            rotation=Cv2Rotation.NO_ROTATION,
+            color_mode=ColorMode.RGB,
+        ),
+        "left_wrist": OpenCVCameraConfig(
+            index_or_path=left_wrist_path,
+            fps=30,
+            width=640,
+            height=480,
+        ),
+        "right_wrist": OpenCVCameraConfig(
+            index_or_path=right_wrist_path,
+            fps=30,
+            width=640,
+            height=480,
+        ),
     },
 )
 
