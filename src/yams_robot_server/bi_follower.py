@@ -14,23 +14,19 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-def map_range(
-    x: float, in_min: float, in_max: float, out_min: float, out_max: float
-) -> float:
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
-
-
 @RobotConfig.register_subclass("bi_yams_follower")
 @dataclass
 class BiYamsFollowerConfig(RobotConfig):
-    left_arm_port: str
-    right_arm_port: str
+    left_arm_can_port: str = "can_follower_l"
+    left_arm_server_port: int = 11333
+    right_arm_can_port: str = "can_follower_r"
+    right_arm_server_port: int = 11334
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
 class BiYamsFollower(Robot):
     """
-    Bimanual TRLC-DK1 Follower Arm designed by The Robot Learning Company.
+    Bimanual I2RT Yams Follower Arms.
     """
 
     config_class = BiYamsFollowerConfig
@@ -42,10 +38,12 @@ class BiYamsFollower(Robot):
         self.config = config
 
         left_arm_config = YamsFollowerConfig(
-            port=self.config.left_arm_port,
+            can_port=self.config.left_arm_can_port,
+            server_port=self.config.left_arm_server_port,
         )
         right_arm_config = YamsFollowerConfig(
-            port=self.config.right_arm_port,
+            can_port=self.config.right_arm_can_port,
+            server_port=self.config.right_arm_server_port,
         )
 
         self.cameras = make_cameras_from_configs(config.cameras)
@@ -84,7 +82,7 @@ class BiYamsFollower(Robot):
     def connect(self) -> None:
         for cam in self.cameras.values():
             cam.connect()
-            
+
         self.left_arm.connect()
         self.right_arm.connect()
 

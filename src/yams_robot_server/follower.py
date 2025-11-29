@@ -77,7 +77,8 @@ class YamsFollower(Robot):
         if self.is_connected:
             raise DeviceAlreadyConnectedError(f"{self} already connected")
 
-        self._robot_process = mp.Process(
+        ctx = mp.get_context("spawn")
+        self._robot_process = ctx.Process(
             target=run_robot_server,
             args=(self.config,),
         )
