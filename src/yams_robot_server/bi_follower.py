@@ -48,9 +48,9 @@ class BiYamsFollower(Robot):
             port=self.config.right_arm_port,
         )
 
+        self.cameras = make_cameras_from_configs(config.cameras)
         self.left_arm = YamsFollower(left_arm_config)
         self.right_arm = YamsFollower(right_arm_config)
-        self.cameras = make_cameras_from_configs(config.cameras)
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -82,11 +82,11 @@ class BiYamsFollower(Robot):
         )
 
     def connect(self) -> None:
-        self.left_arm.connect()
-        self.right_arm.connect()
-
         for cam in self.cameras.values():
             cam.connect()
+            
+        self.left_arm.connect()
+        self.right_arm.connect()
 
     @property
     def is_calibrated(self) -> bool:

@@ -14,8 +14,12 @@ dependencies = [
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
-    "pyzed>=1.3.0",
 ]
 
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
+
+[dependency-groups]
+dev = [
+    "opencv-python>=4.12.0.88",
+]

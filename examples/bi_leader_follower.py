@@ -16,20 +16,9 @@ if not available_zed_cameras:
 # get first camera for now - generalise later
 zed_cam_id = available_zed_cameras[0]["id"]
 
-available_opencv_cameras = find_opencv_cameras()
-if not available_opencv_cameras:
-    print("No OpenCV cameras found.")
-
-# get both wrist cameras for now
-left_wrist_camera = available_opencv_cameras[0]
-left_wrist_path = left_wrist_camera["id"]
-right_wrist_camera = available_opencv_cameras[1]
-right_wrist_path = right_wrist_camera["id"]
-
-
 bi_follower_config = BiYamsFollowerConfig(
-    left_arm_port="can0",
-    right_arm_port="can1",
+    left_arm_port="can1",
+    right_arm_port="can0",
     cameras={
         "topdown": ZEDCameraConfig(
             camera_id=zed_cam_id,
@@ -40,13 +29,13 @@ bi_follower_config = BiYamsFollowerConfig(
             color_mode=ColorMode.RGB,
         ),
         "left_wrist": OpenCVCameraConfig(
-            index_or_path=left_wrist_path,
+            index_or_path=4,
             fps=30,
             width=640,
             height=480,
         ),
         "right_wrist": OpenCVCameraConfig(
-            index_or_path=right_wrist_path,
+            index_or_path=2,
             fps=30,
             width=640,
             height=480,
@@ -55,8 +44,8 @@ bi_follower_config = BiYamsFollowerConfig(
 )
 
 bi_leader_config = BiYamsLeaderConfig(
-    left_arm_port="/dev/ttyACM1",
-    right_arm_port="/dev/ttyACM2",
+    left_arm_port="/dev/ttyACM0",
+    right_arm_port="/dev/ttyACM1",
 )
 
 bi_leader = BiYamsLeader(bi_leader_config)
