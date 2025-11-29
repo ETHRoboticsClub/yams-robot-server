@@ -158,7 +158,9 @@ class ZEDCamera(Camera):
 
         image_zed = sl.Mat()
 
-        self.zed.retrieve_image(image_zed, sl.VIEW.LEFT, sl.MEM.CPU, sl.MAT_TYPE.U8_C3)
+        self.zed.retrieve_image(
+            image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self._get_resolution()
+        )
 
         frame = image_zed.get_data()
         processed_frame = self._postprocess_image(frame, color_mode)
