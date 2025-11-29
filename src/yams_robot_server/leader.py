@@ -117,9 +117,14 @@ class YamsLeader(Teleoperator):
 
         start = time.perf_counter()
 
-        raw_positions = self.bus.sync_read(
-            normalize=False, data_name="Present_Position"
-        )
+        try:
+            raw_positions = self.bus.sync_read(
+                normalize=False, data_name="Present_Position"
+            )
+        except Exception as e:
+            print(f"Error reading from {self}: {e}")
+            return None
+        
         calibration_offsets = self.calibration.get("offsets", {})
         calibration_scales = self.calibration.get("scales", {})
         action = {}
