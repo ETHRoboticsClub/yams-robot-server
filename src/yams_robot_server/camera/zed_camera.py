@@ -5,12 +5,11 @@ from typing import Any
 
 import cv2
 import numpy as np
-from numpy.typing import NDArray
 import pyzed.sl as sl
-
 from lerobot.cameras import Camera, ColorMode
-from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 from lerobot.cameras.utils import get_cv2_rotation
+from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
+from numpy.typing import NDArray
 
 from .zed_config import ZEDCameraConfig
 
@@ -158,9 +157,12 @@ class ZEDCamera(Camera):
 
         image_zed = sl.Mat()
 
-        self.zed.retrieve_image(
-            image_zed, sl.VIEW.LEFT, sl.MEM.CPU, self._get_resolution()
-        )
+        resolution = (
+            sl.Resolution(self.capture_width, self.capture_height)
+            if self.width and self.height
+            else sl.Resolution(width=1280, height=720)
+        ) # TODO: Set default resolution properly
+        self.zed.retrieve_image(image_zed, sl.VIEW.LEFT, sl.MEM.CPU, resolution)
 
         frame = image_zed.get_data()
         processed_frame = self._postprocess_image(frame, color_mode)

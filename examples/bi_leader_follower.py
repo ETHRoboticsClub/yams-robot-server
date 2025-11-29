@@ -1,12 +1,11 @@
 import time
-import cv2
 
+import cv2
 from lerobot.cameras import ColorMode, Cv2Rotation
-from lerobot.cameras.opencv import OpenCVCameraConfig
 
 from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from yams_robot_server.bi_leader import BiYamsLeader, BiYamsLeaderConfig
-from yams_robot_server.camera import ZEDCameraConfig, ZEDCamera, find_opencv_cameras
+from yams_robot_server.camera import ZEDCamera, ZEDCameraConfig
 from yams_robot_server.utils.utils import slow_move, split_arm_action
 
 available_zed_cameras = ZEDCamera.find_cameras()
@@ -28,18 +27,18 @@ bi_follower_config = BiYamsFollowerConfig(
             rotation=Cv2Rotation.NO_ROTATION,
             color_mode=ColorMode.RGB,
         ),
-        "left_wrist": OpenCVCameraConfig(
-            index_or_path=4,
-            fps=30,
-            width=640,
-            height=480,
-        ),
-        "right_wrist": OpenCVCameraConfig(
-            index_or_path=2,
-            fps=30,
-            width=640,
-            height=480,
-        ),
+        # "left_wrist": OpenCVCameraConfig(
+        #     index_or_path=4,
+        #     fps=30,
+        #     width=640,
+        #     height=480,
+        # ),
+        # "right_wrist": OpenCVCameraConfig(
+        #     index_or_path=2,
+        #     fps=30,
+        #     width=640,
+        #     height=480,
+        # ),
     },
 )
 
