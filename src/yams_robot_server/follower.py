@@ -14,7 +14,6 @@ from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnected
 
 logger = logging.getLogger(__name__)
 
-
 @RobotConfig.register_subclass("yams_follower")
 @dataclass
 class YamsFollowerConfig(RobotConfig):

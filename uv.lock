@@ -696,6 +696,15 @@ wheels = [
 ]
 
 [[package]]
+name = "durationpy"
+version = "0.10"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/9d/a4/e44218c2b394e31a6dd0d6b095c4e1f32d0be54c2a4b250032d717647bab/durationpy-0.10.tar.gz", hash = "sha256:1fa6893409a6e739c9c72334fc65cca1f355dbdd93405d30f726deb5bde42fba", size = 3335, upload-time = "2025-05-17T13:52:37.26Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b0/0d/9feae160378a3553fa9a339b0e9c1a048e147a4127210e286ef18b730f03/durationpy-0.10-py3-none-any.whl", hash = "sha256:3b41e1b601234296b4fb368338fdcd3e13e0b4fb5b67345948f4f2bf9868b286", size = 3922, upload-time = "2025-05-17T13:52:36.463Z" },
+]
+
+[[package]]
 name = "dynamixel-sdk"
 version = "3.8.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2918,6 +2927,20 @@ wheels = [
 ]
 
 [[package]]
+name = "pyzed"
+version = "1.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "durationpy" },
+    { name = "python-dateutil" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/86/94/86e58f5d73c514112f6f137099db6d75150c273cd4502b7db574a15d8d7f/pyzed-1.3.0.tar.gz", hash = "sha256:63d680ecd6bc993f8c72abba0369b28478a3c1d35cf671992f862bcee140d604", size = 2959, upload-time = "2022-11-27T19:26:02.183Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/3d/d74e1a695c7b164f8ab711c51eb59220d121240d45016468ddd15235a9bd/pyzed-1.3.0-py3-none-any.whl", hash = "sha256:dde6ccb484810c4dfda9b7813ace4e19d3df9967195ca66e42e5d6512d08aae6", size = 3106, upload-time = "2022-11-27T19:25:37.613Z" },
+]
+
+[[package]]
 name = "pyzmq"
 version = "27.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3933,6 +3956,7 @@ dependencies = [
     { name = "ipykernel" },
     { name = "lerobot" },
     { name = "pyyaml" },
+    { name = "pyzed" },
 ]
 
 [package.metadata]
@@ -3942,6 +3966,7 @@ requires-dist = [
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "lerobot", specifier = ">=0.4.1" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "pyzed", specifier = ">=1.3.0" },
 ]
 
 [[package]]

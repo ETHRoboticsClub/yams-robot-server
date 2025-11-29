@@ -1,12 +1,33 @@
 import time
+import cv2
 
 from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from yams_robot_server.bi_leader import BiYamsLeader, BiYamsLeaderConfig
+from yams_robot_server.camera import ZEDCameraConfig, ZEDCamera
 from yams_robot_server.utils.utils import slow_move, split_arm_action
+
+available_cameras = ZEDCamera.find_cameras()
+if not available_cameras or len(available_cameras) == 0:
+    print("No ZED cameras found.")
+else:
+    print(f"Available ZED cameras: {available_cameras}")
+
+zed_cam_id = available_cameras[0]["id"]
+
 
 bi_follower_config = BiYamsFollowerConfig(
     left_arm_port="can0",
     right_arm_port="can1",
+    cameras={
+        "topdown": ZEDCameraConfig(
+            camera_id=zed_cam_id,
+            fps=30,
+            width=640,
+            height=480,
+            rotation="NO_ROTATION",
+            color_mode="RGB",
+        )
+    },
 )
 
 bi_leader_config = BiYamsLeaderConfig(
@@ -32,6 +53,14 @@ try:
         bi_leader_action = bi_leader.get_action()
         print({key: f"{value:.2f}" for key, value in bi_leader_action.items()})
         bi_follower.send_action(bi_leader_action)
+        observation = bi_follower.get_observation()
+        zed_camera_image = observation["topdown"]
+        print(
+            f"Camera image shape: {zed_camera_image.shape}, dtype: {zed_camera_image.dtype}"
+        )
+        cv2.imshow("ZED Camera", zed_camera_image)
+        cv2.waitKey(1)
+
         time.sleep(1 / freq)
 except KeyboardInterrupt:
     print("\nStopping teleop...")

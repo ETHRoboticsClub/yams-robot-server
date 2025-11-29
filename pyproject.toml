@@ -14,6 +14,7 @@ dependencies = [
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
+    "pyzed>=1.3.0",
 ]
 
 [tool.uv.sources]
