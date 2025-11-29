@@ -157,25 +157,36 @@ class ZEDCamera(Camera):
             raise RuntimeError(f"{self} failed to grab frame.")
 
         image_zed = sl.Mat()
-        self.zed.retrieve_image(image_zed, sl.VIEW.LEFT)
+        target_mode = color_mode if color_mode else self.color_mode
+        if target_mode == ColorMode.RGB:
+            self.zed.retrieve_image(
+                image_zed, sl.VIEW.LEFT, sl.MEM.CPU, sl.MAT_TYPE.U8_C3
+            )
+        else:
+            self.zed.retrieve_image(
+                image_zed, sl.VIEW.LEFT, sl.MEM.CPU, sl.MAT_TYPE.U8_C4
+            )
 
-        frame = image_zed.get_data()[:, :, :3]
+        frame = image_zed.get_data()
+        if target_mode == ColorMode.BGR and frame.shape[2] == 4:
+            # remove alpha
+            frame = frame[:, :, :3]
 
-        frame_processed = self._postprocess_image(frame, color_mode)
+        processed_frame = self._postprocess_image(frame, color_mode)
 
         read_duration_ms = (time.perf_counter() - start_time) * 1e3
         logger.debug(f"{self} read took: {read_duration_ms:.1f}ms")
 
-        return frame_processed
+        return processed_frame
 
     def _postprocess_image(
         self, image: NDArray[Any], color_mode: ColorMode | None = None
     ) -> NDArray[Any]:
-        target_mode = color_mode if color_mode else self.color_mode
-
         processed = image
-        if target_mode == ColorMode.RGB:
-            processed = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+        target_mode = color_mode if color_mode else self.color_mode
+        if target_mode == ColorMode.RGB and processed.shape[2] == 3:
+            processed = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
 
         if self.rotation in [
             cv2.ROTATE_90_CLOCKWISE,
