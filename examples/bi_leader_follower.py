@@ -10,8 +10,8 @@ bi_follower_config = BiYamsFollowerConfig(
 )
 
 bi_leader_config = BiYamsLeaderConfig(
-    left_arm_port="/dev/ttyACM1",
-    right_arm_port="/dev/ttyACM2",
+    left_arm_port="/dev/ttyACM0",
+    right_arm_port="/dev/ttyACM1",
 )
 
 bi_leader = BiYamsLeader(bi_leader_config)
@@ -20,7 +20,7 @@ bi_leader.connect()
 bi_follower = BiYamsFollower(bi_follower_config)
 bi_follower.connect()
 
-freq = 100  # Hz
+freq = 200  # Hz
 
 bi_leader_action = bi_leader.get_action()
 
@@ -30,7 +30,9 @@ slow_move(bi_follower.right_arm, split_arm_action(bi_leader_action, "right_"))
 try:
     while True:
         bi_leader_action = bi_leader.get_action()
-        print({key: f"{value:.2f}" for key, value in bi_leader_action.items()})
+        if bi_leader_action is None:
+            continue
+        # print({key: f"{value:.2f}" for key, value in bi_leader_action.items()})
         bi_follower.send_action(bi_leader_action)
         time.sleep(1 / freq)
 except KeyboardInterrupt:
