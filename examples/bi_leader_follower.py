@@ -1,7 +1,7 @@
 import time
 
-import cv2
 from lerobot.cameras import ColorMode, Cv2Rotation
+from lerobot.cameras.opencv import OpenCVCameraConfig
 
 from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from yams_robot_server.bi_leader import BiYamsLeader, BiYamsLeaderConfig
@@ -10,35 +10,30 @@ from yams_robot_server.utils.utils import slow_move, split_arm_action
 
 
 def main():
-    # available_zed_cameras = ZEDCamera.find_cameras()
-    # if not available_zed_cameras:
-    #     print("No ZED cameras found.")
+    available_zed_cameras = ZEDCamera.find_cameras()
+    if not available_zed_cameras:
+        print("No ZED cameras found.")
 
-    # # get first camera for now - generalise later
-    # zed_cam_id = available_zed_cameras[0]["id"]
+    # get first camera for now - generalise later
+    zed_cam_id = available_zed_cameras[0]["id"]
 
     bi_follower_config = BiYamsFollowerConfig(
         cameras={
-            # "topdown": ZEDCameraConfig(
-            #     camera_id=zed_cam_id,
-            #     fps=30,
-            #     width=640,
-            #     height=480,
-            #     rotation=Cv2Rotation.ROTATE_180,
-            #     color_mode=ColorMode.RGB,
-            # ),
-            # "left_wrist": OpenCVCameraConfig(
-            #     index_or_path=4,
-            #     fps=30,
-            #     width=640,
-            #     height=480,
-            # ),
-            # "right_wrist": OpenCVCameraConfig(
-            #     index_or_path=2,
-            #     fps=30,
-            #     width=640,
-            #     height=480,
-            # ),
+            "topdown": ZEDCameraConfig(
+                camera_id=zed_cam_id,
+            ),
+            "left_wrist": OpenCVCameraConfig(
+                index_or_path=2,
+                fps=30,
+                width=640,
+                height=480,
+            ),
+            "right_wrist": OpenCVCameraConfig(
+                index_or_path=4,
+                fps=30,
+                width=640,
+                height=480,
+            ),
         },
     )
 
