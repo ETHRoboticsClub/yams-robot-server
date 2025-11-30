@@ -136,8 +136,13 @@ class YamsFollower(Robot):
         return action
 
     def disconnect(self):
+        from lerobot_robot_yams.utils.utils import slow_move
+
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
+
+        zero_pos = {f"{n}.pos": 0.0 for n in self.config.joint_names}
+        slow_move(self, zero_pos, duration=2.0)
 
         self._client.close()
         self._robot_process.terminate()
