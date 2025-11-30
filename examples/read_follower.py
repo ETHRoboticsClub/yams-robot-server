@@ -1,6 +1,6 @@
 import time
 
-from yams_robot_server.follower import YamsFollower, YamsFollowerConfig
+from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 
 follower_config = YamsFollowerConfig(
     port="can_follower_r",

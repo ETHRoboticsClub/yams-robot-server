@@ -8,7 +8,7 @@ from lerobot.cameras import CameraConfig
 from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.robots import Robot, RobotConfig
 
-from yams_robot_server.follower import YamsFollower, YamsFollowerConfig
+from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from yams_robot_server.follower import YamsFollower
+from lerobot_robot_yams.follower import YamsFollower
 
 
 def slow_move(

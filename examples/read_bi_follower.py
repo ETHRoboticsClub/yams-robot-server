@@ -1,7 +1,7 @@
 import time
 
-from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
-from yams_robot_server.utils.utils import slow_move
+from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
+from lerobot_robot_yams.utils.utils import slow_move
 
 
 def main():

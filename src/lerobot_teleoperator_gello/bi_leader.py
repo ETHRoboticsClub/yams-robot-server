@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from lerobot.teleoperators.teleoperator import Teleoperator, TeleoperatorConfig
 
-from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
+from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
 logger = logging.getLogger(__name__)
 

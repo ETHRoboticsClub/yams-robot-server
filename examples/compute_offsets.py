@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
+from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
 
 def compute_offsets(

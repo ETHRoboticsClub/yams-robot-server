@@ -1,12 +1,11 @@
 import time
 
-from lerobot.cameras import ColorMode, Cv2Rotation
 from lerobot.cameras.opencv import OpenCVCameraConfig
 
-from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
-from yams_robot_server.bi_leader import BiYamsLeader, BiYamsLeaderConfig
-from yams_robot_server.camera import ZEDCamera, ZEDCameraConfig
-from yams_robot_server.utils.utils import slow_move, split_arm_action
+from lerobot_camera_zed.zed_camera import ZEDCamera, ZEDCameraConfig
+from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
+from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
+from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
 
 def main():
@@ -21,6 +20,9 @@ def main():
         cameras={
             "topdown": ZEDCameraConfig(
                 camera_id=zed_cam_id,
+                width=640,
+                height=480,
+                fps=30,
             ),
             "left_wrist": OpenCVCameraConfig(
                 index_or_path=2,
