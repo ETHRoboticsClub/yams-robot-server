@@ -25,13 +25,13 @@ def main():
                 fps=30,
             ),
             "left_wrist": OpenCVCameraConfig(
-                index_or_path=2,
+                index_or_path=3,
                 fps=30,
                 width=640,
                 height=480,
             ),
             "right_wrist": OpenCVCameraConfig(
-                index_or_path=4,
+                index_or_path=5,
                 fps=30,
                 width=640,
                 height=480,
