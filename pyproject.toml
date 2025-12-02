@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = "==3.10.*"
 dependencies = [
     "dynamixel-sdk>=3.8.4",
-    "lerobot@git+https://github.com/ETHRoboticsClub/lerobot.git@feature/mouse_control",
+    "lerobot==0.4.0",
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
