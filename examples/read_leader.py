@@ -1,6 +1,9 @@
+import gc
 import time
 
 from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
+
+gc.disable()
 
 leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
 

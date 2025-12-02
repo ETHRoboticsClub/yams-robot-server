@@ -1,3 +1,4 @@
+import gc
 import logging
 import time
 
@@ -5,23 +6,16 @@ from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move
 from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
-# Create a handler that prints to console
-logging.basicConfig(level=logging.INFO, force=True)
-logger = logging.getLogger(__name__)
-
-# # Add handler to the specific package's logger
-# logger = logging.getLogger("can")
-# logger.addHandler(handler)
-# logger.setLevel(logging.DEBUG)
+gc.disable()
 
 
 def main():
     follower_config = YamsFollowerConfig(
-        can_port="can0",
+        can_port="can_follower_r",
         server_port=11333,
     )
 
-    leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
+    leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="right")
 
     leader = YamsLeader(leader_config)
     leader.connect()
@@ -41,7 +35,6 @@ def main():
             leader_action = leader.get_action()
             if leader_action is None:
                 continue
-            # print({key: f"{value:.2f}" for key, value in leader_action.items()})
             follower.send_action(leader_action)
             time.sleep(1 / freq)
             time_elapsed = time.time() - start_time

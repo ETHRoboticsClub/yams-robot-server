@@ -1,8 +1,11 @@
+import gc
+import logging
 import time
 
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move
 
+gc.disable()
 
 def main():
     bi_follower_config = BiYamsFollowerConfig()

@@ -84,7 +84,7 @@ class YamsFollower(Robot):
         )
         self._robot_process.start()
 
-        time.sleep(0.5)
+        #time.sleep(0.5)
         self._client = portal.Client(f"localhost:{self.config.server_port}")
 
         for cam in self.cameras.values():

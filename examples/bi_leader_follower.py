@@ -1,3 +1,4 @@
+import gc
 import logging
 import time
 
@@ -8,8 +9,8 @@ from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
-# Configure root logger so warnings from all modules (including i2rt) are shown
-# force=True overrides the basicConfig already called by i2rt's dm_driver.py at import time
+gc.disable()
+
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
@@ -71,20 +72,12 @@ def main():
             bi_leader_action = bi_leader.get_action()
             if bi_leader_action is None:
                 continue
-            # print({key: f"{value:.2f}" for key, value in bi_leader_action.items()})
             bi_follower.send_action(bi_leader_action)
-            # observation = bi_follower.get_observation()
-            # zed_camera_image = observation["topdown"]
-            # print(
-            #     f"Camera image shape: {zed_camera_image.shape}, dtype: {zed_camera_image.dtype}"
-            # )
-            # cv2.imshow("ZED Camera", zed_camera_image)
-            # cv2.waitKey(1)
             time.sleep(1 / freq)
             time_elapsed = time.time() - start_time
             if count % 400 == 0:
                 print(f"elapsed time iterations: {time_elapsed:.6f} seconds")
-            if time_elapsed >= 0.1:
+            if time_elapsed >= 0.05:
                 print(f"Max elapsed time larger then 100ms: {time_elapsed:.2f} seconds")
             start_time = time.time()
 

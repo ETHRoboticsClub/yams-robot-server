@@ -1,6 +1,9 @@
+import gc
 import time
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
+
+gc.disable()
 
 follower_config = YamsFollowerConfig(
     port="can_follower_r",

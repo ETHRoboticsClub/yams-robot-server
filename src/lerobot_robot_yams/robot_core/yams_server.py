@@ -7,7 +7,7 @@ from i2rt.robots.utils import GripperType
 
 
 def run_robot_server(config) -> None:
-    # signal.signal(signal.SIGINT, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
     gripper_type = GripperType.from_string_name(config.gripper)
     robot = get_yam_robot(channel=config.can_port, gripper_type=gripper_type)
 
