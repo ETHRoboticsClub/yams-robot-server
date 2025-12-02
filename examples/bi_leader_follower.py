@@ -1,5 +1,3 @@
-import gc
-import logging
 import time
 
 from lerobot.cameras.opencv import OpenCVCameraConfig
@@ -8,11 +6,6 @@ from lerobot_camera_zed.zed_camera import ZEDCamera, ZEDCameraConfig
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
-
-gc.disable()
-
-logging.basicConfig(level=logging.INFO, force=True)
-logger = logging.getLogger(__name__)
 
 
 def main():

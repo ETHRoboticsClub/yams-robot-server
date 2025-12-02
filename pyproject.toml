@@ -33,3 +33,7 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/lerobot_robot_yams", "src/lerobot_teleoperator_gello", "src/lerobot_camera_zed"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']

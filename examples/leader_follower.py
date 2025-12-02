@@ -1,12 +1,8 @@
-import gc
-import logging
 import time
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move
 from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
-
-gc.disable()
 
 
 def main():
@@ -47,9 +43,7 @@ def main():
     except KeyboardInterrupt:
         print("\nStopping teleop...")
     finally:
-        slow_move(
-            follower, {f"{name}.pos": 0.0 for name in follower.config.joint_names}
-        )
+        slow_move(follower, {f"{name}.pos": 0.0 for name in follower.config.joint_names})
         leader.disconnect()
         follower.disconnect()
 

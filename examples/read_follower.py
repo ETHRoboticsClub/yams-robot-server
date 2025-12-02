@@ -1,9 +1,6 @@
-import gc
 import time
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
-
-gc.disable()
 
 follower_config = YamsFollowerConfig(
     port="can_follower_r",
@@ -16,9 +13,7 @@ hz = 100  # Hz
 
 try:
     while True:
-        print(
-            {key: f"{value:.2f}" for key, value in follower.get_observation().items()}
-        )
+        print({key: f"{value:.2f}" for key, value in follower.get_observation().items()})
         time.sleep(1 / hz)
 
 except KeyboardInterrupt:

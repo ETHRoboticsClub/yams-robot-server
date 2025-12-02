@@ -1,11 +1,8 @@
-import gc
-import logging
 import time
 
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move
 
-gc.disable()
 
 def main():
     bi_follower_config = BiYamsFollowerConfig()
@@ -18,9 +15,9 @@ def main():
     for arm in [bi_follower.left_arm, bi_follower.right_arm]:
         slow_move(arm, {f"{name}.pos": 0.0 for name in arm.config.joint_names})
 
-    zero_action = {
-        f"left_{name}.pos": 0.0 for name in bi_follower.left_arm.config.joint_names
-    } | {f"right_{name}.pos": 0.0 for name in bi_follower.right_arm.config.joint_names}
+    zero_action = {f"left_{name}.pos": 0.0 for name in bi_follower.left_arm.config.joint_names} | {
+        f"right_{name}.pos": 0.0 for name in bi_follower.right_arm.config.joint_names
+    }
 
     start_time = time.time()
     count = 0

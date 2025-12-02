@@ -1,10 +1,6 @@
-import gc
-import logging
 import time
 
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
-
-gc.disable()
 
 bi_leader_config = BiYamsLeaderConfig(
     left_arm_port="/dev/ttyACM0",
