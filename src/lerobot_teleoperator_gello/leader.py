@@ -19,13 +19,13 @@ class YamsLeaderConfig(TeleoperatorConfig):
     port: str
     gripper_open_pos: int = 2280
     gripper_closed_pos: int = 1670
-    calibration_path: str = "src/yams_robot_server/calibration"
+    calibration_path: str = "src/lerobot_teleoperator_gello/calibration"
     side: str = "right"
 
 
 class YamsLeader(Teleoperator):
     config_class = YamsLeaderConfig
-    name = "yams_leader1"
+    name = "yams_leader"
 
     def __init__(self, config: YamsLeaderConfig):
         super().__init__(config)
@@ -124,7 +124,7 @@ class YamsLeader(Teleoperator):
         except Exception as e:
             print(f"Error reading from {self}: {e}")
             return None
-        
+
         calibration_offsets = self.calibration.get("offsets", {})
         calibration_scales = self.calibration.get("scales", {})
         action = {}

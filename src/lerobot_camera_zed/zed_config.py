@@ -8,9 +8,6 @@ class ZEDCameraConfig(CameraConfig):
     camera_id: int = 0
     color_mode: ColorMode = ColorMode.RGB
     rotation: Cv2Rotation = Cv2Rotation.ROTATE_180
-    width: int = 640
-    height: int = 480
-    fps: int = 30
     depth_mode: str = "PERFORMANCE"
 
     def __post_init__(self) -> None:

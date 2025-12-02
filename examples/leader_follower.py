@@ -1,8 +1,8 @@
 import time
 
-from yams_robot_server.follower import YamsFollower, YamsFollowerConfig
-from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
-from yams_robot_server.utils.utils import slow_move
+from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
+from lerobot_robot_yams.utils.utils import slow_move
+from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
 
 def main():

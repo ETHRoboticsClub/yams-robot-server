@@ -11,7 +11,7 @@ from lerobot.cameras import CameraConfig, make_cameras_from_configs
 from lerobot.robots import Robot, RobotConfig
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 
-from yams_robot_server.robot_core.yams_server import run_robot_server
+from lerobot_robot_yams.robot_core.yams_server import run_robot_server
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,7 @@ class YamsFollowerConfig(RobotConfig):
 
 class YamsFollower(Robot):
     config_class = YamsFollowerConfig
-    name = "yams_follower1"
+    name = "yams_follower"
 
     def __init__(self, config: YamsFollowerConfig):
         super().__init__(config)
@@ -136,8 +136,13 @@ class YamsFollower(Robot):
         return action
 
     def disconnect(self):
+        from lerobot_robot_yams.utils.utils import slow_move
+
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
+
+        zero_pos = {f"{n}.pos": 0.0 for n in self.config.joint_names}
+        slow_move(self, zero_pos, duration=2.0)
 
         self._client.close()
         self._robot_process.terminate()

@@ -1,5 +1,6 @@
-from yams_robot_server.bi_leader import BiYamsLeaderConfig, BiYamsLeader
 import time
+
+from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
 bi_leader_config = BiYamsLeaderConfig(
     left_arm_port="/dev/ttyACM0",
