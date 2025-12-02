@@ -18,7 +18,6 @@ try:
     while True:
         count += 1
         bi_leader_action = bi_leader.get_action()
-        # print({key: f"{value:.2f}" for key, value in bi_leader_action.items()})
         time.sleep(1 / freq)
         time_elapsed = time.time() - start_time
         if count % 400 == 0:

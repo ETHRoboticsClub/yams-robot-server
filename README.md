@@ -59,8 +59,8 @@ Run inside lerobot:
 lerobot-record \
     --robot.type=bi_yams_follower \
     --robot.cameras="{ 
-        left_wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}, 
-        right_wrist: {type: opencv, index_or_path: 4, width: 640, height: 480, fps: 30},
+        left_wrist: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, 
+        right_wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30},
         topdown: {type: zed, camera_id: 0, width: 640, height: 480, fps: 30}
       }" \
     --teleop.type=bi_yams_leader \

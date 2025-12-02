@@ -25,19 +25,25 @@ def main():
     slow_move(follower, leader_action)
 
     try:
+        start_time = time.time()
+        count = 0
         while True:
             leader_action = leader.get_action()
             if leader_action is None:
                 continue
-            # print({key: f"{value:.2f}" for key, value in leader_action.items()})
             follower.send_action(leader_action)
             time.sleep(1 / freq)
+            time_elapsed = time.time() - start_time
+            if count % 400 == 0:
+                print(f"elapsed time iterations: {time_elapsed:.6f} seconds")
+            if time_elapsed >= 0.05:
+                print(f"Max elapsed time larger then 50ms: {time_elapsed:.2f} seconds")
+            start_time = time.time()
+            count += 1
     except KeyboardInterrupt:
         print("\nStopping teleop...")
     finally:
-        slow_move(
-            follower, {f"{name}.pos": 0.0 for name in follower.config.joint_names}
-        )
+        slow_move(follower, {f"{name}.pos": 0.0 for name in follower.config.joint_names})
         leader.disconnect()
         follower.disconnect()
 
