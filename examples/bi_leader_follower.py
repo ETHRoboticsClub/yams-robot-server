@@ -1,3 +1,4 @@
+import logging
 import time
 
 from lerobot.cameras.opencv import OpenCVCameraConfig
@@ -6,6 +7,11 @@ from lerobot_camera_zed.zed_camera import ZEDCamera, ZEDCameraConfig
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
+
+# Configure root logger so warnings from all modules (including i2rt) are shown
+# force=True overrides the basicConfig already called by i2rt's dm_driver.py at import time
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
 
 
 def main():
@@ -25,13 +31,13 @@ def main():
                 fps=30,
             ),
             "left_wrist": OpenCVCameraConfig(
-                index_or_path=3,
+                index_or_path=0,
                 fps=30,
                 width=640,
                 height=480,
             ),
             "right_wrist": OpenCVCameraConfig(
-                index_or_path=5,
+                index_or_path=2,
                 fps=30,
                 width=640,
                 height=480,
@@ -50,7 +56,7 @@ def main():
     bi_follower = BiYamsFollower(bi_follower_config)
     bi_follower.connect()
 
-    freq = 100  # Hz
+    freq = 200  # Hz
 
     bi_leader_action = bi_leader.get_action()
 
