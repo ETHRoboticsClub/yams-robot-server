@@ -52,12 +52,17 @@ cd yams-robot-server
   ```
 ---
 
+### Before You Start (Teleoperation & Recording)
+
+> **Important:** Read this before running any teleoperation or recording commands.
+
+- Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions.
+- Ensure correct mapping of each leader arm to its USB port.
+- Identify the correct camera ids by running `python scripts/find_camera.py`
+
+---
 
 ### Run Bimanual Teleoperation
-
-**Before you start:**  
-- Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions.
-- Ensure correct mapping of each arm to its USB port.
 
 **Standalone example script:**
 ```bash
@@ -83,10 +88,6 @@ lerobot-teleoperate \
 ---
 
 ### Record Bimanual Teleoperation
-
-**Before you start:**  
-- Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions.
-- Ensure correct mapping of each arm to its USB port.
 
 ```bash
 lerobot-record \
