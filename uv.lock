@@ -2362,7 +2362,7 @@ dependencies = [
     { name = "pyyaml" },
 ]
 
-[package.dev-dependencies]
+[package.optional-dependencies]
 zed = [
     { name = "pyzed" },
 ]
@@ -2375,10 +2375,9 @@ requires-dist = [
     { name = "lerobot", specifier = "==0.4.0" },
     { name = "opencv-python" },
     { name = "pyyaml", specifier = ">=6.0" },
+    { name = "pyzed", marker = "extra == 'zed'", path = "src/lerobot_camera_zed/pyzed/pyzed-5.1-cp310-cp310-linux_x86_64.whl" },
 ]
-
-[package.metadata.requires-dev]
-zed = [{ name = "pyzed", path = "src/lerobot_camera_zed/pyzed/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }]
+provides-extras = ["zed"]
 
 [[package]]
 name = "yarl"
