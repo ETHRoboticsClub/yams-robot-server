@@ -1,3 +1,4 @@
+import argparse
 import time
 
 from lerobot.cameras.opencv import OpenCVCameraConfig
@@ -8,7 +9,26 @@ from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Bimanual leader-follower teleoperation")
+    parser.add_argument(
+        "--left-leader-port",
+        type=str,
+        default="/dev/ttyACM1",
+        help="Serial port for the left leader arm (default: /dev/ttyACM1)",
+    )
+    parser.add_argument(
+        "--right-leader-port",
+        type=str,
+        default="/dev/ttyACM0",
+        help="Serial port for the right leader arm (default: /dev/ttyACM0)",
+    )
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
+
     available_zed_cameras = ZEDCamera.find_cameras()
     if not available_zed_cameras:
         print("No ZED cameras found.")
@@ -40,8 +60,8 @@ def main():
     )
 
     bi_leader_config = BiYamsLeaderConfig(
-        left_arm_port="/dev/ttyACM1",
-        right_arm_port="/dev/ttyACM0",
+        left_arm_port=args.left_leader_port,
+        right_arm_port=args.right_leader_port,
     )
 
     bi_leader = BiYamsLeader(bi_leader_config)

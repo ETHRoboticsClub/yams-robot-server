@@ -7,35 +7,64 @@ cd yams-robot-server
 
 ## Installation
 
-### Virtual Environment (Recommended)
+### Virtual Environment Setup (Recommended)
 
-First, install uv if you don't have it:
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-Now install the dependencies:
-```bash
-uv sync
-```
+1. **Install `uv` (if you don't have it):**
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+2. **Install the project dependencies:**
+   ```bash
+   uv sync
+   ```
+
+3. **(Optional) ZED Camera Support:**  
+   If you have the ZED SDK installed, copy the .whl (Python wheel) file into `src/lerobot_camera_zed/pyzed/`, then run:
+   ```bash
+   uv sync --extra zed
+   ```
 
 ## Usage
 
-- **Follower arms:** Check CAN port mapping by plugging cables one at a time and monitoring `ip link show`
-- **Leader arms:** Check USB port mapping by plugging cables one at a time and monitoring `ls /dev/ttyACM*`
+### Setup Guidance
 
-### Reset CAN Devices
-```bash
-sh third_party/i2rt/scripts/reset_all_can.sh
-```
+- **Follower Arms:**  
+  Ensure both CAN cables are connected. Verify their presence by running:  
+  ```bash
+  ip link show
+  ```
+  Look for both `can_follower_r` and `can_follower_l`.
+
+- **Leader Arms:**  
+  Check USB port mapping by plugging in cables one at a time and monitoring:  
+  ```bash
+  ls /dev/ttyACM*
+  ```
+  > **Note:**  
+  > Ensure the mapping for left and right arm ports is correct in your example script or when supplying arguments to `lerobot`.
+
+- **Reset CAN Devices**
+
+  To reset all CAN devices, run:
+  ```bash
+  sh third_party/i2rt/scripts/reset_all_can.sh
+  ```
+---
+
+
 ### Run Bimanual Teleoperation
-**Important:** Put the leader arms into a nominal position before starting the script. The follower arms will move to the initial leader arm position. 
 
-Run standalone example script:
+**Before you start:**  
+- Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions.
+- Ensure correct mapping of each arm to its USB port.
+
+**Standalone example script:**
 ```bash
-uv run examples/bi_leader_follower.py
+uv run examples/bi_leader_follower.py --left-leader-port /dev/ttyACM1 --right-leader-port /dev/ttyACM0
 ```
 
-Run inside lerobot:
+**Run inside LeRobot:**
 
 ```bash
 lerobot-teleoperate \
@@ -51,9 +80,13 @@ lerobot-teleoperate \
     --display_data=true
 ```
 
+---
+
 ### Record Bimanual Teleoperation
 
-Run inside lerobot:
+**Before you start:**  
+- Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions.
+- Ensure correct mapping of each arm to its USB port.
 
 ```bash
 lerobot-record \
@@ -74,3 +107,5 @@ lerobot-record \
     --dataset.reset_time_s=30 \
     --dataset.single_task="Fold the towel."
 ```
+
+---
