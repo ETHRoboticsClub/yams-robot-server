@@ -903,7 +903,7 @@ wheels = [
 
 [[package]]
 name = "lerobot"
-version = "0.4.2"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "accelerate" },
@@ -930,9 +930,9 @@ dependencies = [
     { name = "torchvision" },
     { name = "wandb" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/6b/f80861cb1dbc908a45a7c96bdd88cf77de1e259f3b5a183ff859cca71fe7/lerobot-0.4.2.tar.gz", hash = "sha256:9fe72d9f2ad26438c03277f90b13efef126dd680ac082d112f9eef804be78101", size = 576787, upload-time = "2025-11-27T21:42:53.349Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/51/f125de006b655a23a3326e96bed28678751b4c5239664350ea11e5c59948/lerobot-0.4.0.tar.gz", hash = "sha256:8e464a33825b343209d9a13646da1f05f74fc8f0174db976f4b232bc6950ab6a", size = 558414, upload-time = "2025-10-23T18:38:31.216Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d5/58/f5f9d6c0451df3e5cf9c484b1eb6a3abb93016677630a615b925c9da189a/lerobot-0.4.2-py3-none-any.whl", hash = "sha256:af4e5c709522c8022703e10431c14ae65b2e967e7ab608f51a07c03c38cefe04", size = 758780, upload-time = "2025-11-27T21:42:51.687Z" },
+    { url = "https://files.pythonhosted.org/packages/7c/76/187b2aae3ceed15370a801206e78a491e80ff27cd4bad6416983c2335f18/lerobot-0.4.0-py3-none-any.whl", hash = "sha256:69d407fe7e3aad23e2bbf1e89466e514b31efab539114da4d8811aabf6df86b1", size = 735079, upload-time = "2025-10-23T18:38:29.55Z" },
 ]
 
 [[package]]
@@ -2358,13 +2358,11 @@ dependencies = [
     { name = "i2rt" },
     { name = "ipykernel" },
     { name = "lerobot" },
+    { name = "opencv-python" },
     { name = "pyyaml" },
 ]
 
 [package.dev-dependencies]
-dev = [
-    { name = "opencv-python" },
-]
 zed = [
     { name = "pyzed" },
 ]
@@ -2374,12 +2372,12 @@ requires-dist = [
     { name = "dynamixel-sdk", specifier = ">=3.8.4" },
     { name = "i2rt", editable = "third_party/i2rt" },
     { name = "ipykernel", specifier = ">=7.1.0" },
-    { name = "lerobot" },
+    { name = "lerobot", specifier = "==0.4.0" },
+    { name = "opencv-python" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "opencv-python", specifier = ">=4.12.0.88" }]
 zed = [{ name = "pyzed", path = "src/lerobot_camera_zed/pyzed/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }]
 
 [[package]]
