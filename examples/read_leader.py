@@ -1,8 +1,8 @@
 import time
 
-from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
+from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
-leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
+leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="right")
 
 leader = YamsLeader(leader_config)
 leader.connect()

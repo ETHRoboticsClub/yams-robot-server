@@ -1,39 +1,52 @@
 import time
 
-import numpy as np
+from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
+from lerobot_robot_yams.utils.utils import slow_move
+from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
-from yams_robot_server.follower import YamsFollower, YamsFollowerConfig
-from yams_robot_server.leader import YamsLeader, YamsLeaderConfig
-from yams_robot_server.utils.utils import slow_move
 
-follower_config = YamsFollowerConfig(
-    port="can_follower_l",
-)
+def main():
+    follower_config = YamsFollowerConfig(
+        can_port="can_follower_r",
+        server_port=11333,
+    )
 
-leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="left")
+    leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="left")
 
-leader = YamsLeader(leader_config)
-leader.connect()
+    leader = YamsLeader(leader_config)
+    leader.connect()
 
-follower = YamsFollower(follower_config)
-follower.connect()
+    follower = YamsFollower(follower_config)
+    follower.connect()
 
-freq = 50  # Hz
+    freq = 100  # Hz
 
-leader_action = leader.get_action()
-slow_move(follower, leader_action)
+    leader_action = leader.get_action()
+    slow_move(follower, leader_action)
 
-try:
-    while True:
-        leader_action = leader.get_action()
-        if leader_action is None:
-            continue
-        print({key: f"{value:.2f}" for key, value in leader_action.items()})
-        follower.send_action(leader_action)
-        time.sleep(1 / freq)
-except KeyboardInterrupt:
-    print("\nStopping teleop...")
-finally:
-    slow_move(follower, {f"{name}.pos": 0.0 for name in follower.config.joint_names})
-    leader.disconnect()
-    follower.disconnect()
+    try:
+        start_time = time.time()
+        count = 0
+        while True:
+            leader_action = leader.get_action()
+            if leader_action is None:
+                continue
+            follower.send_action(leader_action)
+            time.sleep(1 / freq)
+            time_elapsed = time.time() - start_time
+            if count % 400 == 0:
+                print(f"elapsed time iterations: {time_elapsed:.6f} seconds")
+            if time_elapsed >= 0.05:
+                print(f"Max elapsed time larger then 50ms: {time_elapsed:.2f} seconds")
+            start_time = time.time()
+            count += 1
+    except KeyboardInterrupt:
+        print("\nStopping teleop...")
+    finally:
+        slow_move(follower, {f"{name}.pos": 0.0 for name in follower.config.joint_names})
+        leader.disconnect()
+        follower.disconnect()
+
+
+if __name__ == "__main__":
+    main()

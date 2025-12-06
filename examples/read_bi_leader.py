@@ -1,5 +1,6 @@
-from yams_robot_server.bi_leader import BiYamsLeaderConfig, BiYamsLeader
 import time
+
+from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
 bi_leader_config = BiYamsLeaderConfig(
     left_arm_port="/dev/ttyACM0",
@@ -17,7 +18,6 @@ try:
     while True:
         count += 1
         bi_leader_action = bi_leader.get_action()
-        # print({key: f"{value:.2f}" for key, value in bi_leader_action.items()})
         time.sleep(1 / freq)
         time_elapsed = time.time() - start_time
         if count % 400 == 0:

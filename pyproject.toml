@@ -7,10 +7,11 @@ name = "yams-robot-server"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = "==3.10.*"
 dependencies = [
+    "opencv-python",
     "dynamixel-sdk>=3.8.4",
-    "lerobot>=0.4.1",
+    "lerobot==0.4.0",
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
@@ -18,8 +19,19 @@ dependencies = [
 
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
+pyzed = { path = "src/lerobot_camera_zed/pyzed/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }
 
-[dependency-groups]
-dev = [
-    "opencv-python>=4.12.0.88",
+[project.optional-dependencies]
+zed = [
+    "pyzed",
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lerobot_robot_yams", "src/lerobot_teleoperator_gello", "src/lerobot_camera_zed"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']

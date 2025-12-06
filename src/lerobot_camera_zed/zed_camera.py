@@ -161,7 +161,7 @@ class ZEDCamera(Camera):
             sl.Resolution(self.capture_width, self.capture_height)
             if self.width and self.height
             else sl.Resolution(width=1280, height=720)
-        ) # TODO: Set default resolution properly
+        )  # TODO: Set default resolution properly
         self.zed.retrieve_image(image_zed, sl.VIEW.LEFT, sl.MEM.CPU, resolution)
 
         frame = image_zed.get_data()
@@ -178,7 +178,13 @@ class ZEDCamera(Camera):
         processed = image
 
         target_mode = color_mode if color_mode else self.color_mode
-        if target_mode == ColorMode.RGB and processed.shape[2] == 3:
+        # ZED SDK returns BGRA (4 channels), convert to RGB (3 channels)
+        if processed.shape[2] == 4:
+            if target_mode == ColorMode.RGB:
+                processed = cv2.cvtColor(processed, cv2.COLOR_BGRA2RGB)
+            else:
+                processed = cv2.cvtColor(processed, cv2.COLOR_BGRA2BGR)
+        elif target_mode == ColorMode.RGB and processed.shape[2] == 3:
             processed = cv2.cvtColor(processed, cv2.COLOR_BGR2RGB)
 
         if self.rotation in [
