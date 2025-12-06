@@ -1,4 +1,5 @@
 import argparse
+import logging
 import time
 
 from lerobot.cameras.opencv import OpenCVCameraConfig
@@ -8,20 +9,23 @@ from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
+logging.basicConfig(level=logging.INFO, force=True)
+logger = logging.getLogger(__name__)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Bimanual leader-follower teleoperation")
     parser.add_argument(
         "--left-leader-port",
         type=str,
-        default="/dev/ttyACM1",
-        help="Serial port for the left leader arm (default: /dev/ttyACM1)",
+        default="/dev/ttyACM0",
+        help="Serial port for the left leader arm (default: /dev/ttyACM0)",
     )
     parser.add_argument(
         "--right-leader-port",
         type=str,
-        default="/dev/ttyACM0",
-        help="Serial port for the right leader arm (default: /dev/ttyACM0)",
+        default="/dev/ttyACM1",
+        help="Serial port for the right leader arm (default: /dev/ttyACM1)",
     )
     return parser.parse_args()
 
