@@ -116,7 +116,7 @@ class ZEDCamera(Camera):
 
         logger.info(f"{self} connected.")
 
-    def _get_resolution(self) -> sl.RESOLUTION:
+    def _get_resolution(self) -> sl.Resolution:
         if self.width is None or self.height is None:
             return sl.RESOLUTION.HD720
 

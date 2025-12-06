@@ -25,7 +25,7 @@ bi_follower_config = BiYamsFollowerConfig(
             fps=30,
             width=640,
             height=480,
-            rotation=Cv2Rotation.NO_ROTATION,
+            rotation=Cv2Rotation.ROTATE_180,
             color_mode=ColorMode.RGB,
         ),
         "left_wrist": OpenCVCameraConfig(
