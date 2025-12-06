@@ -5,9 +5,9 @@ from lerobot.utils.control_utils import LeRobotDataset
 from lerobot.datasets.utils import DEFAULT_VIDEO_PATH, write_info
 
 from lerobot.cameras import ColorMode, Cv2Rotation
-from yams_robot_server.bi_follower import BiYamsFollower, BiYamsFollowerConfig
-from yams_robot_server.bi_leader import BiYamsLeader, BiYamsLeaderConfig
-from yams_robot_server.camera import ZEDCamera, ZEDCameraConfig
+from src.lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
+from src.lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
+from src.lerobot_camera_zed import ZEDCamera, ZEDCameraConfig
 
 repo_id = "ETHRC/yams"
 root = "../../../data"
