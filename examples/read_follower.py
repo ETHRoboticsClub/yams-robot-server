@@ -2,20 +2,27 @@ import time
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 
-follower_config = YamsFollowerConfig(
-    port="can_follower_r",
-)
-follower = YamsFollower(follower_config)
 
-follower.connect()
+def main():
+    follower_config = YamsFollowerConfig(
+        can_port="can_follower_r",
+        server_port=11334,
+    )
+    follower = YamsFollower(follower_config)
 
-hz = 100  # Hz
+    follower.connect()
 
-try:
-    while True:
-        print({key: f"{value:.2f}" for key, value in follower.get_observation().items()})
-        time.sleep(1 / hz)
+    hz = 100  # Hz
 
-except KeyboardInterrupt:
-    print("\nStopping read position...")
-    follower.disconnect()
+    try:
+        while True:
+            print({key: f"{value:.2f}" for key, value in follower.get_observation().items()})
+            time.sleep(1 / hz)
+
+    except KeyboardInterrupt:
+        print("\nStopping read position...")
+        follower.disconnect()
+
+
+if __name__ == "__main__":
+    main()

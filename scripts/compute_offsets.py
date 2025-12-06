@@ -60,13 +60,13 @@ def compute_offsets(
 
 
 def main():
-    leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="left")
+    leader_config = YamsLeaderConfig(port="/dev/ttyACM1", side="right")
     leader = YamsLeader(leader_config)
     leader.connect()
 
     # Save to YAML file
     output_path = Path(
-        f"src/yams_robot_server/calibration/leader_calibration_{leader_config.side}.yaml"
+        f"src/lerobot_teleoperator_gello/calibration/leader_calibration_{leader_config.side}.yaml"
     )
     print(f"\nSaving calibration to {output_path}...")
     with open(output_path, "w") as f:

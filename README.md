@@ -75,13 +75,13 @@ uv run examples/bi_leader_follower.py --left-leader-port /dev/ttyACM1 --right-le
 lerobot-teleoperate \
     --robot.type=bi_yams_follower \
     --robot.cameras="{ 
-        left_wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30}, 
-        right_wrist: {type: opencv, index_or_path: 4, width: 640, height: 480, fps: 30},
+        left_wrist: {type: opencv, index_or_path: 0, width: 640, height: 480, fps: 30}, 
+        right_wrist: {type: opencv, index_or_path: 2, width: 640, height: 480, fps: 30},
         topdown: {type: zed, camera_id: 0, width: 640, height: 480, fps: 30}
       }" \
     --teleop.type=bi_yams_leader \
-    --teleop.left_arm_port=/dev/ttyACM1 \
-    --teleop.right_arm_port=/dev/ttyACM0 \
+    --teleop.left_arm_port=/dev/ttyACM0 \
+    --teleop.right_arm_port=/dev/ttyACM1 \
     --display_data=true
 ```
 
@@ -98,14 +98,14 @@ lerobot-record \
         topdown: {type: zed, camera_id: 0, width: 640, height: 480, fps: 30}
       }" \
     --teleop.type=bi_yams_leader \
-    --teleop.left_arm_port=/dev/ttyACM1 \
-    --teleop.right_arm_port=/dev/ttyACM0 \
+    --teleop.left_arm_port=/dev/ttyACM0 \
+    --teleop.right_arm_port=/dev/ttyACM1 \
     --display_data=true \
     --dataset.repo_id=ETHRC/my_dataset \
     --dataset.push_to_hub=true \
-    --dataset.num_episodes=50 \
+    --dataset.num_episodes=1000 \
     --dataset.episode_time_s=120 \
-    --dataset.reset_time_s=30 \
+    --dataset.reset_time_s=2 \
     --dataset.single_task="Fold the towel."
 ```
 

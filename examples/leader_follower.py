@@ -11,7 +11,7 @@ def main():
         server_port=11333,
     )
 
-    leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="right")
+    leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="left")
 
     leader = YamsLeader(leader_config)
     leader.connect()
