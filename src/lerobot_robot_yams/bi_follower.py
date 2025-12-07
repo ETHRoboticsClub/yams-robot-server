@@ -17,7 +17,7 @@ logger.setLevel(logging.DEBUG)
 @RobotConfig.register_subclass("bi_yams_follower")
 @dataclass
 class BiYamsFollowerConfig(RobotConfig):
-    left_arm_can_port: str = "can1"
+    left_arm_can_port: str = "can_follower_l"
     left_arm_server_port: int = 11333
     right_arm_can_port: str = "can_follower_r"
     right_arm_server_port: int = 11334
