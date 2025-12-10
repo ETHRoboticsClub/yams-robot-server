@@ -1767,13 +1767,13 @@ wheels = [
 [[package]]
 name = "pyzed"
 version = "5.1"
-source = { path = "src/lerobot_camera_zed/pyzed/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }
+source = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }
 dependencies = [
     { name = "cython" },
     { name = "numpy" },
 ]
 wheels = [
-    { filename = "pyzed-5.1-cp310-cp310-linux_x86_64.whl", hash = "sha256:247e936db1549a79f914235759fed9f8e5becfbb61aebf97c9bdaf557b38689f" },
+    { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp310-cp310-linux_x86_64.whl", hash = "sha256:247e936db1549a79f914235759fed9f8e5becfbb61aebf97c9bdaf557b38689f" },
 ]
 
 [package.metadata]
@@ -2375,7 +2375,7 @@ requires-dist = [
     { name = "lerobot", specifier = "==0.4.0" },
     { name = "opencv-python" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "pyzed", marker = "extra == 'zed'", path = "src/lerobot_camera_zed/pyzed/pyzed-5.1-cp310-cp310-linux_x86_64.whl" },
+    { name = "pyzed", marker = "extra == 'zed'", url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp310-cp310-linux_x86_64.whl" },
 ]
 provides-extras = ["zed"]
 

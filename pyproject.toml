@@ -19,7 +19,7 @@ dependencies = [
 
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
-pyzed = { path = "src/lerobot_camera_zed/pyzed/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }
+pyzed = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }
 
 [project.optional-dependencies]
 zed = [
