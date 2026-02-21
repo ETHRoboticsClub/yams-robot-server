@@ -37,6 +37,10 @@ cd yams-robot-server
   ```
   Look for both `can_follower_r` and `can_follower_l`.
 
+  For first time setup of the arms, please see `third_party/i2rt/doc/set_persist_id_socket_can.md`
+  **Reset CAN buses:** `sudo sh third_party/i2rt/scripts/reset_all_can.sh`
+  ****
+
 - **Leader Arms:**  
   Check USB port mapping by plugging in cables one at a time and monitoring:  
   ```bash
