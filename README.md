@@ -2,6 +2,7 @@
 
 ```bash
 git clone --recursive https://github.com/ETHRoboticsClub/yams-robot-server.git
+git submodule update --init --recursive
 cd yams-robot-server
 ```
 
