@@ -21,7 +21,8 @@ cd yams-robot-server
    ```
 
 3. **(Optional) ZED Camera Support:**  
-   If you have the ZED SDK installed, copy the .whl (Python wheel) file into `src/lerobot_camera_zed/pyzed/`, then run:
+   1. Install the ZED SDK (Download script from https://www.stereolabs.com/en-fr/developers and run).
+   2. Copy the .whl (Python wheel) file into `src/lerobot_camera_zed/pyzed/`, then run:
    ```bash
    uv sync --extra zed
    ```
