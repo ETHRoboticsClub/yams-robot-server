@@ -71,11 +71,11 @@ def handle_sigint(signum, frame):
     cleanup()
     raise SystemExit(0)
 
-def monitor_arm_obs(bi_follower, bi_leader):
-    global plotter
-    obs = bi_follower.get_observation(with_cameras=True)
-    act = bi_leader.get_action()
-    plotter.push(obs, act)
+# def monitor_arm_obs(bi_follower, bi_leader):
+#     global plotter
+#     obs = bi_follower.get_observation(with_cameras=True)
+#     act = bi_leader.get_action()
+#     plotter.push(obs, act)
     # def fmt(value):
     #     arr = np.asarray(value)
     #     if arr.ndim == 0:
@@ -88,6 +88,8 @@ def monitor_arm_obs(bi_follower, bi_leader):
     #     if key.startswith(("left_", "right_"))
     # }
     # print(arm_obs)
+
+HZ = 200
 
 def main():
     global bi_leader, bi_follower, plotter
@@ -158,11 +160,10 @@ def main():
 
         signal.signal(signal.SIGINT, handle_sigint)
         
-        hz = 100
 
         plotter = start_joint_plotter(
             bi_follower,
-            hz=100,
+            hz=60,
             history_s=10,
             backend="web",
             web_port=8988,
@@ -173,8 +174,12 @@ def main():
         )
 
         while True:
-            monitor_arm_obs(bi_follower, bi_leader)
-            time.sleep(1 / hz)
+            # monitor_arm_obs(bi_follower, bi_leader)
+            obs = bi_follower.get_observation(with_cameras=True)
+            act = bi_leader.get_action()
+            plotter.push(obs, act)
+
+            time.sleep(1 / HZ)
         return
     finally:
         cleanup()
