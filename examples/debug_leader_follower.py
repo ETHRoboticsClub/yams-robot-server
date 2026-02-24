@@ -1,10 +1,12 @@
 import argparse
+import json
 import logging
 import os
 import signal
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import yaml
@@ -19,9 +21,14 @@ from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfi
 from utils.connection import _free_port
 from utils.live_joint_plot import start_joint_plotter
 
-logging.basicConfig(level=logging.INFO, force=True)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    force=True,
+)
 logger = logging.getLogger(__name__)
 ARMS_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "arms.yaml"
+RUN_HISTORY_DIR = Path(__file__).resolve().parents[1] / "run_history"
 
 
 def _build_joint_label_map(section_config: dict) -> dict[str, str]:
@@ -53,13 +60,38 @@ cleaned_up = False
 bi_leader = None
 bi_follower = None
 plotter = None
+run_started_at = time.time()
+trajectory: list[dict[str, Any]] = []
+
+
+def _joint_only(data: dict[str, Any] | None) -> dict[str, float]:
+    if not data:
+        return {}
+    return {
+        k: float(v)
+        for k, v in data.items()
+        if k.endswith(".pos") and k.startswith(("left_", "right_"))
+    }
+
+
+def _save_run_history() -> None:
+    if not trajectory:
+        return
+    RUN_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+    ts = time.strftime("%Y%m%d_%H%M%S", time.localtime(run_started_at))
+    out_path = RUN_HISTORY_DIR / f"trajectory_{ts}.jsonl"
+    with out_path.open("w", encoding="utf-8") as f:
+        for row in trajectory:
+            f.write(json.dumps(row, separators=(",", ":")) + "\n")
+    logger.info("Saved trajectory: %s", out_path)
 
 def cleanup():
     global cleaned_up, plotter
     if cleaned_up:
         return
     cleaned_up = True
-    print("Cleaning up arm connections")
+    logger.info("Cleaning up arm connections")
+    _save_run_history()
     if bi_follower is not None:
         bi_follower.disconnect()
     if bi_leader is not None:
@@ -110,11 +142,12 @@ def main():
     _free_port(left_follower_server_port)
     _free_port(right_follower_server_port)
 
+    zed_cam_id = None
     available_zed_cameras = ZEDCamera.find_cameras()
     if available_zed_cameras:
         zed_cam_id = available_zed_cameras[0]["id"]
     else:
-        print("No ZED cameras found.")
+        logger.warning("No ZED cameras found.")
 
     # get first camera for now - generalise later
     cameras = {
@@ -173,13 +206,28 @@ def main():
             camera_label_map=camera_label_map,
         )
 
+        reset_after_seconds = 10
+        i = 0
         while True:
             # monitor_arm_obs(bi_follower, bi_leader)
             obs = bi_follower.get_observation(with_cameras=True)
             act = bi_leader.get_action()
             plotter.push(obs, act)
+            trajectory.append({
+                "t": time.time(),
+                "obs": _joint_only(obs),
+                "act": _joint_only(act),
+            })
 
             time.sleep(1 / HZ)
+            i += 1
+            if i % HZ == 0:
+                logger.info("%s seconds passed", i / HZ)
+            if i == reset_after_seconds * HZ:
+                logger.info("Resetting arms")
+                for arm in [bi_follower.left_arm, bi_follower.right_arm]:
+                    slow_move(arm, {f"{name}.pos": 0.0 for name in arm.config.joint_names})
+
         return
     finally:
         cleanup()
