@@ -24,6 +24,15 @@ logger = logging.getLogger(__name__)
 ARMS_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "arms.yaml"
 
 
+def _build_joint_label_map(section_config: dict) -> dict[str, str]:
+    out: dict[str, str] = {}
+    joint_labels = section_config.get("joint_labels", {})
+    for side in ("left", "right"):
+        for joint, label in joint_labels.get(side, {}).items():
+            out[f"{side}_{joint}.pos"] = label
+    return out
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Bimanual leader-follower teleoperation")
     parser.add_argument(
@@ -89,6 +98,9 @@ def main():
         arms_config = yaml.safe_load(f)
 
     follower_config = arms_config["follower"]
+    follower_joint_label_map = _build_joint_label_map(follower_config)
+    leader_joint_label_map = _build_joint_label_map(arms_config.get("leader", {}))
+    camera_label_map = arms_config.get("cameras", {}).get("labels", {})
     left_follower_server_port = follower_config["left_arm"]["server_port"]
     right_follower_server_port = follower_config["right_arm"]["server_port"]
 
@@ -149,7 +161,15 @@ def main():
         hz = 100
 
         plotter = start_joint_plotter(
-            bi_follower, hz=100, history_s=10, backend="web", web_port=8988, camera_hz=5
+            bi_follower,
+            hz=100,
+            history_s=10,
+            backend="web",
+            web_port=8988,
+            camera_hz=5,
+            follower_joint_label_map=follower_joint_label_map,
+            leader_joint_label_map=leader_joint_label_map,
+            camera_label_map=camera_label_map,
         )
 
         while True:

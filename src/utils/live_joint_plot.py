@@ -30,6 +30,9 @@ class LiveJointPlotter:
         backend: str = 'auto',
         web_port: int = 8988,
         camera_hz: float = 5.0,
+        follower_joint_label_map: dict[str, str] | None = None,
+        leader_joint_label_map: dict[str, str] | None = None,
+        camera_label_map: dict[str, str] | None = None,
     ):
         if not joint_keys:
             raise ValueError('joint_keys must not be empty')
@@ -47,6 +50,9 @@ class LiveJointPlotter:
         )
         self.web_port = web_port
         self.camera_hz = camera_hz
+        self.follower_joint_label_map = follower_joint_label_map or {}
+        self.leader_joint_label_map = leader_joint_label_map or {}
+        self.camera_label_map = camera_label_map or {}
 
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
@@ -57,6 +63,13 @@ class LiveJointPlotter:
 
     def _html(self) -> bytes:
         keys_json = json.dumps(self.joint_keys)
+        labels_json = json.dumps(
+            {
+                'obs': self.follower_joint_label_map,
+                'act': self.leader_joint_label_map,
+                'cams': self.camera_label_map,
+            }
+        )
         max_points = max(8, int(self.hz * self.history_s))
         max_buffer_points = max(max_points, int(self.hz * 300.0))
         return f"""<!doctype html>
@@ -79,15 +92,17 @@ class LiveJointPlotter:
     h1 {{ margin: 0 0 4px; font-size: 18px; }}
     .meta {{ color: var(--sub); margin-bottom: 10px; font-size: 12px; }}
     .sections {{ display: grid; gap: 12px; }}
-    .section {{ background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; padding: 10px; }}
-    .section-head {{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }}
-    .section-title {{ font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .section {{ background: var(--panel); border: 1px solid var(--grid); border-radius: 10px; padding: 12px; }}
+    .section-head {{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }}
+    .section-title {{ font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #111827; }}
     .section-status {{ font-size: 12px; color: var(--sub); }}
-    .halves {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
-    .half-title {{ font-size: 12px; color: var(--sub); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .halves {{ display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--grid); border-radius: 8px; overflow: hidden; background: #fcfdff; }}
+    .half {{ padding: 10px; }}
+    .half-right {{ border-left: 2px solid #cbd5e1; box-shadow: inset 14px 0 24px -24px rgba(31, 41, 55, 0.45); }}
+    .half-title {{ font-size: 13px; color: #374151; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; }}
     .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }}
     .card {{ background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; padding: 8px; }}
-    .name {{ font-size: 12px; margin-bottom: 4px; }}
+    .name {{ font-size: 13px; font-weight: 700; margin-bottom: 6px; color: #1f2937; }}
     canvas {{ width: 100%; height: 120px; display: block; border-radius: 4px; background: #fff; }}
     .val {{ margin-top: 4px; color: var(--sub); font-size: 11px; }}
     .badge {{ display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }}
@@ -95,7 +110,7 @@ class LiveJointPlotter:
     input[type="number"] {{ width: 72px; font: inherit; padding: 2px 4px; }}
     .camera-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }}
     .camera-card img {{ width: 100%; height: auto; display: block; border-radius: 4px; background: #111827; }}
-    @media (max-width: 1000px) {{ .halves {{ grid-template-columns: 1fr; }} }}
+    @media (max-width: 1000px) {{ .halves {{ grid-template-columns: 1fr; }} .half-right {{ border-left: 0; border-top: 2px solid #cbd5e1; box-shadow: inset 0 14px 24px -24px rgba(31, 41, 55, 0.45); }} }}
   </style>
 </head>
 <body>
@@ -118,6 +133,7 @@ class LiveJointPlotter:
 
   <script>
     const keys = {keys_json};
+    const labelMapBySource = {labels_json};
     const hz = {self.hz};
     const maxBufferPoints = {max_buffer_points};
     const leftKeys = keys.filter((k) => k.startsWith('left_'));
@@ -131,12 +147,12 @@ class LiveJointPlotter:
     let maxPoints = Math.max(8, Math.round(hz * historyS));
 
     class JointCard {{
-      constructor(parent, key, color) {{
+      constructor(parent, key, label, color) {{
         this.points = [];
         this.key = key;
         this.el = document.createElement('div');
         this.el.className = 'card';
-        this.el.innerHTML = `<div class=\"name\">${{key}}</div><canvas width=\"600\" height=\"220\"></canvas><div class=\"val\">value: <span>-</span></div>`;
+        this.el.innerHTML = `<div class=\"name\">${{label}}</div><canvas width=\"600\" height=\"220\"></canvas><div class=\"val\">value: <span>-</span></div>`;
         parent.appendChild(this.el);
         this.canvas = this.el.querySelector('canvas');
         this.ctx = this.canvas.getContext('2d');
@@ -189,6 +205,7 @@ class LiveJointPlotter:
     class ArmSection {{
       constructor(parent, title, color, sourceKey) {{
         this.sourceKey = sourceKey;
+        this.labelMap = labelMapBySource[sourceKey] || {{}};
         this.cards = [];
         this.lastSeenMs = 0;
         this.name = sourceKey === 'obs' ? 'follower' : 'leader';
@@ -200,15 +217,21 @@ class LiveJointPlotter:
             <div class=\"section-status\">${{title.toLowerCase()}} not connected</div>
           </div>
           <div class=\"halves\">
-            <div><div class=\"half-title\">Left</div><div class=\"grid left-grid\"></div></div>
-            <div><div class=\"half-title\">Right</div><div class=\"grid right-grid\"></div></div>
+            <div class=\"half half-left\"><div class=\"half-title\">Left</div><div class=\"grid left-grid\"></div></div>
+            <div class=\"half half-right\"><div class=\"half-title\">Right</div><div class=\"grid right-grid\"></div></div>
           </div>`;
         parent.appendChild(this.root);
         this.statusEl = this.root.querySelector('.section-status');
         const leftGrid = this.root.querySelector('.left-grid');
         const rightGrid = this.root.querySelector('.right-grid');
-        for (const key of leftKeys) this.cards.push(new JointCard(leftGrid, key, color));
-        for (const key of rightKeys) this.cards.push(new JointCard(rightGrid, key, color));
+        for (const key of leftKeys) {{
+          const label = this.labelMap[key] || key;
+          this.cards.push(new JointCard(leftGrid, key, label, color));
+        }}
+        for (const key of rightKeys) {{
+          const label = this.labelMap[key] || key;
+          this.cards.push(new JointCard(rightGrid, key, label, color));
+        }}
       }}
 
       addPoint(msg) {{
@@ -240,11 +263,11 @@ class LiveJointPlotter:
     }}
 
     class CameraCard {{
-      constructor(parent, key) {{
+      constructor(parent, key, label) {{
         this.key = key;
         this.el = document.createElement('div');
         this.el.className = 'card camera-card';
-        this.el.innerHTML = `<div class=\"name\">${{key}}</div><img alt=\"${{key}}\" />`;
+        this.el.innerHTML = `<div class=\"name\">${{label}}</div><img alt=\"${{label}}\" />`;
         parent.appendChild(this.el);
         this.imgEl = this.el.querySelector('img');
       }}
@@ -258,6 +281,7 @@ class LiveJointPlotter:
       constructor(parent, statusEl) {{
         this.statusEl = statusEl;
         this.parent = parent;
+        this.labelMap = labelMapBySource.cams || {{}};
         this.cards = new Map();
         this.lastSeenMs = 0;
       }}
@@ -267,7 +291,7 @@ class LiveJointPlotter:
         let hasFrame = false;
         for (const [key, frame] of Object.entries(cams)) {{
           if (!frame) continue;
-          if (!this.cards.has(key)) this.cards.set(key, new CameraCard(this.parent, key));
+          if (!this.cards.has(key)) this.cards.set(key, new CameraCard(this.parent, key, this.labelMap[key] || key));
           this.cards.get(key).setFrame(frame);
           hasFrame = true;
         }}
@@ -460,6 +484,9 @@ def start_joint_plotter(
     backend: str = 'auto',
     web_port: int = 8988,
     camera_hz: float = 5.0,
+    follower_joint_label_map: dict[str, str] | None = None,
+    leader_joint_label_map: dict[str, str] | None = None,
+    camera_label_map: dict[str, str] | None = None,
 ) -> LiveJointPlotter:
     keys = _joint_keys(bi_follower.get_observation(with_cameras=False))
     if not keys:
@@ -472,6 +499,9 @@ def start_joint_plotter(
         backend=backend,
         web_port=web_port,
         camera_hz=camera_hz,
+        follower_joint_label_map=follower_joint_label_map,
+        leader_joint_label_map=leader_joint_label_map,
+        camera_label_map=camera_label_map,
     )
     plotter.start()
     return plotter

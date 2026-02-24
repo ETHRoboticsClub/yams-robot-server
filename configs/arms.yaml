@@ -3,3 +3,45 @@ follower:
     server_port: 11333
   right_arm:
     server_port: 11334
+  joint_labels:
+    left:
+      joint_1: Joint 1
+      joint_2: Joint 2
+      joint_3: Joint 3
+      joint_4: Joint 4
+      joint_5: Joint 5
+      joint_6: Joint 6
+      gripper: Gripper
+    right:
+      joint_1: Joint 1
+      joint_2: Joint 2
+      joint_3: Joint 3
+      joint_4: Joint 4
+      joint_5: Joint 5
+      joint_6: Joint 6
+      gripper: Gripper
+
+leader:
+  joint_labels:
+    left:
+      joint_1: Joint 1
+      joint_2: Joint 2
+      joint_3: Joint 3
+      joint_4: Joint 4
+      joint_5: Joint 5
+      joint_6: Joint 6
+      gripper: Gripper
+    right:
+      joint_1: Joint 1
+      joint_2: Joint 2
+      joint_3: Joint 3
+      joint_4: Joint 4
+      joint_5: Joint 5
+      joint_6: Joint 6
+      gripper: Gripper
+
+cameras:
+  labels:
+    left_wrist: Left Wrist
+    right_wrist: Right Wrist
+    topdown: Topdown
