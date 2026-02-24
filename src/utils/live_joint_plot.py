@@ -71,14 +71,22 @@ class LiveJointPlotter:
     body {{ margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
     h1 {{ margin: 0 0 4px; font-size: 18px; }}
     .meta {{ color: var(--sub); margin-bottom: 10px; font-size: 12px; }}
-    .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }}
+    .sections {{ display: grid; gap: 12px; }}
+    .section {{ background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; padding: 10px; }}
+    .section-head {{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }}
+    .section-title {{ font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .section-status {{ font-size: 12px; color: var(--sub); }}
+    .halves {{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }}
+    .half-title {{ font-size: 12px; color: var(--sub); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }}
+    .grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }}
     .card {{ background: var(--panel); border: 1px solid var(--grid); border-radius: 8px; padding: 8px; }}
     .name {{ font-size: 12px; margin-bottom: 4px; }}
     canvas {{ width: 100%; height: 120px; display: block; border-radius: 4px; background: #fff; }}
-    .vals {{ margin-top: 4px; color: var(--sub); font-size: 11px; }}
+    .val {{ margin-top: 4px; color: var(--sub); font-size: 11px; }}
     .badge {{ display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }}
     .ctrl {{ display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }}
     input[type="number"] {{ width: 72px; font: inherit; padding: 2px 4px; }}
+    @media (max-width: 1000px) {{ .halves {{ grid-template-columns: 1fr; }} }}
   </style>
 </head>
 <body>
@@ -90,103 +98,158 @@ class LiveJointPlotter:
     </label>
   </div>
   <div class=\"meta\"><span class=\"badge\" style=\"background:var(--follower)\"></span>follower <span class=\"badge\" style=\"background:var(--leader);margin-left:10px\"></span>leader</div>
-  <div class=\"grid\" id=\"grid\"></div>
+  <div class=\"sections\" id=\"sections\"></div>
 
   <script>
     const keys = {keys_json};
     const hz = {self.hz};
     const maxBufferPoints = {max_buffer_points};
+    const leftKeys = keys.filter((k) => k.startsWith('left_'));
+    const rightKeys = keys.filter((k) => k.startsWith('right_'));
+    const statusEl = document.getElementById('status');
+    const sectionsEl = document.getElementById('sections');
+    const historyInput = document.getElementById('history-s');
     let historyS = {self.history_s};
     let maxPoints = Math.max(8, Math.round(hz * historyS));
-    const state = new Map();
-    const canvases = new Map();
-    const statusEl = document.getElementById('status');
-    const grid = document.getElementById('grid');
-    const historyInput = document.getElementById('history-s');
 
-    for (const key of keys) {{
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `<div class=\"name\">${{key}}</div><canvas width=\"600\" height=\"220\"></canvas><div class=\"vals\">obs: <span class=\"obs\">-</span> act: <span class=\"act\">-</span></div>`;
-      grid.appendChild(card);
-      state.set(key, []);
-      canvases.set(key, {{
-        canvas: card.querySelector('canvas'),
-        obs: card.querySelector('.obs'),
-        act: card.querySelector('.act')
-      }});
-    }}
-
-    function trim(arr, nowT) {{
-      const tMin = nowT - historyS;
-      while (arr.length > maxBufferPoints || (arr.length && arr[0].t < tMin)) arr.shift();
-      while (arr.length > maxPoints) arr.shift();
-    }}
-
-    function addPoint(msg) {{
-      for (const key of keys) {{
-        const arr = state.get(key);
-        arr.push({{ t: msg.t, obs: msg.obs[key], act: msg.act[key] }});
-        trim(arr, msg.t);
-        const ui = canvases.get(key);
-        if (msg.obs[key] !== undefined) ui.obs.textContent = Number(msg.obs[key]).toFixed(3);
-        if (msg.act[key] !== undefined) ui.act.textContent = Number(msg.act[key]).toFixed(3);
+    class JointCard {{
+      constructor(parent, key, color) {{
+        this.points = [];
+        this.key = key;
+        this.el = document.createElement('div');
+        this.el.className = 'card';
+        this.el.innerHTML = `<div class=\"name\">${{key}}</div><canvas width=\"600\" height=\"220\"></canvas><div class=\"val\">value: <span>-</span></div>`;
+        parent.appendChild(this.el);
+        this.canvas = this.el.querySelector('canvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.valueEl = this.el.querySelector('span');
+        this.color = color;
       }}
-    }}
 
-    function drawLine(ctx, points, x0, y0, w, h, t0, t1, minY, maxY, color, key) {{
-      ctx.beginPath();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      let moved = false;
-      for (const p of points) {{
-        const v = p[key];
-        if (v === undefined || v === null) continue;
-        const x = x0 + ((p.t - t0) / Math.max(1e-6, (t1 - t0))) * w;
-        const y = y0 + h - ((v - minY) / Math.max(1e-6, (maxY - minY))) * h;
-        if (!moved) {{ ctx.moveTo(x, y); moved = true; }} else {{ ctx.lineTo(x, y); }}
+      trim(nowT) {{
+        const tMin = nowT - historyS;
+        while (this.points.length > maxBufferPoints || (this.points.length && this.points[0].t < tMin)) this.points.shift();
+        while (this.points.length > maxPoints) this.points.shift();
       }}
-      if (moved) ctx.stroke();
-    }}
 
-    function render() {{
-      for (const key of keys) {{
-        const pts = state.get(key);
-        const ui = canvases.get(key);
-        const ctx = ui.canvas.getContext('2d');
-        const w = ui.canvas.width, h = ui.canvas.height;
+      add(t, value) {{
+        if (value === undefined || value === null) return;
+        this.points.push({{ t, value }});
+        this.trim(t);
+        this.valueEl.textContent = Number(value).toFixed(3);
+      }}
+
+      render() {{
+        const ctx = this.ctx;
+        const w = this.canvas.width, h = this.canvas.height;
         ctx.clearRect(0, 0, w, h);
-
         ctx.strokeStyle = '#e5e7eb';
         for (let i = 0; i <= 4; i++) {{
           const y = 10 + i * ((h - 20) / 4);
           ctx.beginPath(); ctx.moveTo(10, y); ctx.lineTo(w - 10, y); ctx.stroke();
         }}
-
-        if (pts.length < 2) continue;
-
+        if (this.points.length < 2) return;
         let minY = Infinity, maxY = -Infinity;
-        for (const p of pts) {{
-          if (p.obs !== undefined) {{ minY = Math.min(minY, p.obs); maxY = Math.max(maxY, p.obs); }}
-          if (p.act !== undefined) {{ minY = Math.min(minY, p.act); maxY = Math.max(maxY, p.act); }}
-        }}
-        if (!isFinite(minY)) {{ minY = -1; maxY = 1; }}
+        for (const p of this.points) {{ minY = Math.min(minY, p.value); maxY = Math.max(maxY, p.value); }}
         const pad = Math.max(0.02, 0.1 * (maxY - minY || 1));
-        minY -= pad;
-        maxY += pad;
-
-        const t0 = pts[0].t;
-        const t1 = pts[pts.length - 1].t;
-        drawLine(ctx, pts, 10, 10, w - 20, h - 20, t0, t1, minY, maxY, '#0ea5e9', 'obs');
-        drawLine(ctx, pts, 10, 10, w - 20, h - 20, t0, t1, minY, maxY, '#ef4444', 'act');
+        minY -= pad; maxY += pad;
+        const t0 = this.points[0].t;
+        const t1 = this.points[this.points.length - 1].t;
+        ctx.beginPath();
+        ctx.strokeStyle = this.color;
+        ctx.lineWidth = 2;
+        let moved = false;
+        for (const p of this.points) {{
+          const x = 10 + ((p.t - t0) / Math.max(1e-6, (t1 - t0))) * (w - 20);
+          const y = 10 + (1 - (p.value - minY) / Math.max(1e-6, (maxY - minY))) * (h - 20);
+          if (!moved) {{ ctx.moveTo(x, y); moved = true; }} else {{ ctx.lineTo(x, y); }}
+        }}
+        if (moved) ctx.stroke();
       }}
-      requestAnimationFrame(render);
     }}
 
+    class ArmSection {{
+      constructor(parent, title, color, sourceKey) {{
+        this.sourceKey = sourceKey;
+        this.cards = [];
+        this.lastSeen = 0;
+        this.root = document.createElement('section');
+        this.root.className = 'section';
+        this.root.innerHTML = `
+          <div class=\"section-head\">
+            <div class=\"section-title\">${{title}}</div>
+            <div class=\"section-status\">${{title.toLowerCase()}} not connected</div>
+          </div>
+          <div class=\"halves\">
+            <div><div class=\"half-title\">Left</div><div class=\"grid left-grid\"></div></div>
+            <div><div class=\"half-title\">Right</div><div class=\"grid right-grid\"></div></div>
+          </div>`;
+        parent.appendChild(this.root);
+        this.statusEl = this.root.querySelector('.section-status');
+        const leftGrid = this.root.querySelector('.left-grid');
+        const rightGrid = this.root.querySelector('.right-grid');
+        for (const key of leftKeys) this.cards.push(new JointCard(leftGrid, key, color));
+        for (const key of rightKeys) this.cards.push(new JointCard(rightGrid, key, color));
+      }}
+
+      addPoint(msg) {{
+        const src = msg[this.sourceKey] || {{}};
+        let hasValue = false;
+        for (const card of this.cards) {{
+          const v = src[card.key];
+          if (v !== undefined && v !== null) hasValue = true;
+          card.add(msg.t, v);
+        }}
+        if (hasValue) this.lastSeen = msg.t;
+      }}
+
+      updateStatus(nowT) {{
+        this.statusEl.textContent = this.lastSeen > 0 && nowT - this.lastSeen <= 2.0
+          ? 'connected'
+          : `${{this.sourceKey === 'obs' ? 'follower' : 'leader'}} not connected`;
+      }}
+
+      render() {{
+        for (const card of this.cards) card.render();
+      }}
+
+      trimAll() {{
+        for (const card of this.cards) {{
+          if (card.points.length) card.trim(card.points[card.points.length - 1].t);
+        }}
+      }}
+    }}
+
+    class JointDashboard {{
+      constructor() {{
+        this.follower = new ArmSection(sectionsEl, 'Follower', '#0ea5e9', 'obs');
+        this.leader = new ArmSection(sectionsEl, 'Leader', '#ef4444', 'act');
+      }}
+
+      addPoint(msg) {{
+        this.follower.addPoint(msg);
+        this.leader.addPoint(msg);
+      }}
+
+      trimAll() {{
+        this.follower.trimAll();
+        this.leader.trimAll();
+      }}
+
+      render() {{
+        const nowT = Math.max(this.follower.lastSeen, this.leader.lastSeen);
+        this.follower.updateStatus(nowT || 0);
+        this.leader.updateStatus(nowT || 0);
+        this.follower.render();
+        this.leader.render();
+      }}
+    }}
+
+    const dashboard = new JointDashboard();
     const es = new EventSource('/events');
     es.onopen = () => statusEl.textContent = 'Connected';
     es.onerror = () => statusEl.textContent = 'Disconnected; retrying...';
-    es.onmessage = (evt) => addPoint(JSON.parse(evt.data));
+    es.onmessage = (evt) => dashboard.addPoint(JSON.parse(evt.data));
     historyInput.onchange = () => {{
       const next = Number(historyInput.value);
       if (!Number.isFinite(next) || next <= 0) {{
@@ -195,11 +258,13 @@ class LiveJointPlotter:
       }}
       historyS = next;
       maxPoints = Math.max(8, Math.round(hz * historyS));
-      for (const arr of state.values()) {{
-        if (arr.length) trim(arr, arr[arr.length - 1].t);
-      }}
+      dashboard.trimAll();
     }};
-    render();
+    function tick() {{
+      dashboard.render();
+      requestAnimationFrame(tick);
+    }}
+    tick();
   </script>
 </body>
 </html>
@@ -272,8 +337,8 @@ class LiveJointPlotter:
                     raise
         print(f'[stream] open http://127.0.0.1:{self.web_port}/')
 
-    def push(self, observation: dict[str, Any], action: dict[str, Any] | None = None) -> None:
-        obs = {k: float(observation[k]) for k in self.joint_keys if k in observation}
+    def push(self, observation: dict[str, Any] | None = None, action: dict[str, Any] | None = None) -> None:
+        obs = {k: float(observation[k]) for k in self.joint_keys if observation and k in observation}
         act = {k: float(action[k]) for k in self.joint_keys if action and k in action}
         payload = json.dumps({'t': time.monotonic(), 'obs': obs, 'act': act}, separators=(',', ':'))
         frame = f'data: {payload}\n\n'.encode('utf-8')
