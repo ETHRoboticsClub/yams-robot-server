@@ -64,7 +64,7 @@ def handle_sigint(signum, frame):
 
 def monitor_arm_obs(bi_follower, bi_leader):
     global plotter
-    obs = bi_follower.get_observation(with_cameras=False)
+    obs = bi_follower.get_observation(with_cameras=True)
     act = bi_leader.get_action()
     plotter.push(obs, act)
     # def fmt(value):
@@ -151,7 +151,7 @@ def main():
         print(f"Using plot backend: {plot_backend}")
         _free_port(8988)
         plotter = start_joint_plotter(
-            bi_follower, hz=100, history_s=20, backend=plot_backend, web_port=8988
+            bi_follower, hz=100, history_s=20, backend=plot_backend, web_port=8988, camera_hz=5
         )
         if plot_backend == "web":
             _wait_for_server(8988, timeout=15.0, poll=0.2)

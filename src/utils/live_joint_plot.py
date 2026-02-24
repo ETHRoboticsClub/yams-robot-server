@@ -3,10 +3,14 @@ import os
 import queue
 import threading
 import time
+from base64 import b64encode
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.request import urlopen
+
+import cv2
+import numpy as np
 
 
 def _joint_keys(data: dict[str, Any]) -> list[str]:
@@ -25,6 +29,7 @@ class LiveJointPlotter:
         title: str = 'Live Joint Positions',
         backend: str = 'auto',
         web_port: int = 8988,
+        camera_hz: float = 5.0,
     ):
         if not joint_keys:
             raise ValueError('joint_keys must not be empty')
@@ -41,12 +46,14 @@ class LiveJointPlotter:
             else ('gui' if backend == 'auto' else backend)
         )
         self.web_port = web_port
+        self.camera_hz = camera_hz
 
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._clients: set[queue.Queue[bytes]] = set()
         self._clients_lock = threading.Lock()
+        self._last_camera_t = 0.0
 
     def _html(self) -> bytes:
         keys_json = json.dumps(self.joint_keys)
@@ -86,6 +93,8 @@ class LiveJointPlotter:
     .badge {{ display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }}
     .ctrl {{ display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }}
     input[type="number"] {{ width: 72px; font: inherit; padding: 2px 4px; }}
+    .camera-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }}
+    .camera-card img {{ width: 100%; height: auto; display: block; border-radius: 4px; background: #111827; }}
     @media (max-width: 1000px) {{ .halves {{ grid-template-columns: 1fr; }} }}
   </style>
 </head>
@@ -99,6 +108,13 @@ class LiveJointPlotter:
   </div>
   <div class=\"meta\"><span class=\"badge\" style=\"background:var(--follower)\"></span>follower <span class=\"badge\" style=\"background:var(--leader);margin-left:10px\"></span>leader</div>
   <div class=\"sections\" id=\"sections\"></div>
+  <section class=\"section\">
+    <div class=\"section-head\">
+      <div class=\"section-title\">Cameras</div>
+      <div class=\"section-status\" id=\"camera-status\">camera not connected</div>
+    </div>
+    <div class=\"camera-grid\" id=\"camera-grid\"></div>
+  </section>
 
   <script>
     const keys = {keys_json};
@@ -109,6 +125,8 @@ class LiveJointPlotter:
     const statusEl = document.getElementById('status');
     const sectionsEl = document.getElementById('sections');
     const historyInput = document.getElementById('history-s');
+    const cameraGridEl = document.getElementById('camera-grid');
+    const cameraStatusEl = document.getElementById('camera-status');
     let historyS = {self.history_s};
     let maxPoints = Math.max(8, Math.round(hz * historyS));
 
@@ -172,7 +190,8 @@ class LiveJointPlotter:
       constructor(parent, title, color, sourceKey) {{
         this.sourceKey = sourceKey;
         this.cards = [];
-        this.lastSeen = 0;
+        this.lastSeenMs = 0;
+        this.name = sourceKey === 'obs' ? 'follower' : 'leader';
         this.root = document.createElement('section');
         this.root.className = 'section';
         this.root.innerHTML = `
@@ -200,13 +219,13 @@ class LiveJointPlotter:
           if (v !== undefined && v !== null) hasValue = true;
           card.add(msg.t, v);
         }}
-        if (hasValue) this.lastSeen = msg.t;
+        if (hasValue) this.lastSeenMs = performance.now();
       }}
 
-      updateStatus(nowT) {{
-        this.statusEl.textContent = this.lastSeen > 0 && nowT - this.lastSeen <= 2.0
+      updateStatus(nowMs) {{
+        this.statusEl.textContent = this.lastSeenMs > 0 && nowMs - this.lastSeenMs <= 2000
           ? 'connected'
-          : `${{this.sourceKey === 'obs' ? 'follower' : 'leader'}} not connected`;
+          : `${{this.name}} not connected`;
       }}
 
       render() {{
@@ -220,15 +239,59 @@ class LiveJointPlotter:
       }}
     }}
 
+    class CameraCard {{
+      constructor(parent, key) {{
+        this.key = key;
+        this.el = document.createElement('div');
+        this.el.className = 'card camera-card';
+        this.el.innerHTML = `<div class=\"name\">${{key}}</div><img alt=\"${{key}}\" />`;
+        parent.appendChild(this.el);
+        this.imgEl = this.el.querySelector('img');
+      }}
+
+      setFrame(dataUrl) {{
+        this.imgEl.src = dataUrl;
+      }}
+    }}
+
+    class CameraSection {{
+      constructor(parent, statusEl) {{
+        this.statusEl = statusEl;
+        this.parent = parent;
+        this.cards = new Map();
+        this.lastSeenMs = 0;
+      }}
+
+      addPoint(msg) {{
+        const cams = msg.cams || {{}};
+        let hasFrame = false;
+        for (const [key, frame] of Object.entries(cams)) {{
+          if (!frame) continue;
+          if (!this.cards.has(key)) this.cards.set(key, new CameraCard(this.parent, key));
+          this.cards.get(key).setFrame(frame);
+          hasFrame = true;
+        }}
+        if (hasFrame) this.lastSeenMs = performance.now();
+      }}
+
+      updateStatus(nowMs) {{
+        this.statusEl.textContent = this.lastSeenMs > 0 && nowMs - this.lastSeenMs <= 2000
+          ? 'connected'
+          : 'camera not connected';
+      }}
+    }}
+
     class JointDashboard {{
       constructor() {{
         this.follower = new ArmSection(sectionsEl, 'Follower', '#0ea5e9', 'obs');
         this.leader = new ArmSection(sectionsEl, 'Leader', '#ef4444', 'act');
+        this.cameras = new CameraSection(cameraGridEl, cameraStatusEl);
       }}
 
       addPoint(msg) {{
         this.follower.addPoint(msg);
         this.leader.addPoint(msg);
+        this.cameras.addPoint(msg);
       }}
 
       trimAll() {{
@@ -237,9 +300,10 @@ class LiveJointPlotter:
       }}
 
       render() {{
-        const nowT = Math.max(this.follower.lastSeen, this.leader.lastSeen);
-        this.follower.updateStatus(nowT || 0);
-        this.leader.updateStatus(nowT || 0);
+        const nowMs = performance.now();
+        this.follower.updateStatus(nowMs);
+        this.leader.updateStatus(nowMs);
+        this.cameras.updateStatus(nowMs);
         this.follower.render();
         this.leader.render();
       }}
@@ -340,7 +404,20 @@ class LiveJointPlotter:
     def push(self, observation: dict[str, Any] | None = None, action: dict[str, Any] | None = None) -> None:
         obs = {k: float(observation[k]) for k in self.joint_keys if observation and k in observation}
         act = {k: float(action[k]) for k in self.joint_keys if action and k in action}
-        payload = json.dumps({'t': time.monotonic(), 'obs': obs, 'act': act}, separators=(',', ':'))
+        now = time.monotonic()
+        cams: dict[str, str] = {}
+        if observation and self.camera_hz > 0 and now - self._last_camera_t >= 1.0 / self.camera_hz:
+            for key, value in observation.items():
+                if key in self.joint_keys or not isinstance(value, np.ndarray) or value.ndim != 3:
+                    continue
+                frame = value
+                if frame.dtype != np.uint8:
+                    frame = np.clip(frame, 0, 255).astype(np.uint8)
+                ok, encoded = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+                if ok:
+                    cams[key] = f"data:image/jpeg;base64,{b64encode(encoded).decode('ascii')}"
+            self._last_camera_t = now
+        payload = json.dumps({'t': now, 'obs': obs, 'act': act, 'cams': cams}, separators=(',', ':'))
         frame = f'data: {payload}\n\n'.encode('utf-8')
 
         with self._clients_lock:
@@ -375,6 +452,7 @@ def start_joint_plotter(
     title: str = 'Live Joint Positions',
     backend: str = 'auto',
     web_port: int = 8988,
+    camera_hz: float = 5.0,
 ) -> LiveJointPlotter:
     keys = _joint_keys(bi_follower.get_observation(with_cameras=False))
     if not keys:
@@ -386,6 +464,7 @@ def start_joint_plotter(
         title=title,
         backend=backend,
         web_port=web_port,
+        camera_hz=camera_hz,
     )
     plotter.start()
     return plotter
