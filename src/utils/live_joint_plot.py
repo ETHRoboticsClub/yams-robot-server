@@ -51,6 +51,7 @@ class LiveJointPlotter:
     def _html(self) -> bytes:
         keys_json = json.dumps(self.joint_keys)
         max_points = max(8, int(self.hz * self.history_s))
+        max_buffer_points = max(max_points, int(self.hz * 300.0))
         return f"""<!doctype html>
 <html lang=\"en\">
 <head>
@@ -76,21 +77,32 @@ class LiveJointPlotter:
     canvas {{ width: 100%; height: 120px; display: block; border-radius: 4px; background: #fff; }}
     .vals {{ margin-top: 4px; color: var(--sub); font-size: 11px; }}
     .badge {{ display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }}
+    .ctrl {{ display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; }}
+    input[type="number"] {{ width: 72px; font: inherit; padding: 2px 4px; }}
   </style>
 </head>
 <body>
   <h1>{self.title}</h1>
   <div class=\"meta\" id=\"status\">Connecting...</div>
+  <div class=\"meta\">
+    <label class=\"ctrl\">history (s)
+      <input id=\"history-s\" type=\"number\" min=\"1\" step=\"1\" value=\"{self.history_s:.3g}\" />
+    </label>
+  </div>
   <div class=\"meta\"><span class=\"badge\" style=\"background:var(--follower)\"></span>follower <span class=\"badge\" style=\"background:var(--leader);margin-left:10px\"></span>leader</div>
   <div class=\"grid\" id=\"grid\"></div>
 
   <script>
     const keys = {keys_json};
-    const maxPoints = {max_points};
+    const hz = {self.hz};
+    const maxBufferPoints = {max_buffer_points};
+    let historyS = {self.history_s};
+    let maxPoints = Math.max(8, Math.round(hz * historyS));
     const state = new Map();
     const canvases = new Map();
     const statusEl = document.getElementById('status');
     const grid = document.getElementById('grid');
+    const historyInput = document.getElementById('history-s');
 
     for (const key of keys) {{
       const card = document.createElement('div');
@@ -105,11 +117,17 @@ class LiveJointPlotter:
       }});
     }}
 
+    function trim(arr, nowT) {{
+      const tMin = nowT - historyS;
+      while (arr.length > maxBufferPoints || (arr.length && arr[0].t < tMin)) arr.shift();
+      while (arr.length > maxPoints) arr.shift();
+    }}
+
     function addPoint(msg) {{
       for (const key of keys) {{
         const arr = state.get(key);
         arr.push({{ t: msg.t, obs: msg.obs[key], act: msg.act[key] }});
-        if (arr.length > maxPoints) arr.shift();
+        trim(arr, msg.t);
         const ui = canvases.get(key);
         if (msg.obs[key] !== undefined) ui.obs.textContent = Number(msg.obs[key]).toFixed(3);
         if (msg.act[key] !== undefined) ui.act.textContent = Number(msg.act[key]).toFixed(3);
@@ -169,6 +187,18 @@ class LiveJointPlotter:
     es.onopen = () => statusEl.textContent = 'Connected';
     es.onerror = () => statusEl.textContent = 'Disconnected; retrying...';
     es.onmessage = (evt) => addPoint(JSON.parse(evt.data));
+    historyInput.onchange = () => {{
+      const next = Number(historyInput.value);
+      if (!Number.isFinite(next) || next <= 0) {{
+        historyInput.value = historyS.toFixed(2);
+        return;
+      }}
+      historyS = next;
+      maxPoints = Math.max(8, Math.round(hz * historyS));
+      for (const arr of state.values()) {{
+        if (arr.length) trim(arr, arr[arr.length - 1].t);
+      }}
+    }};
     render();
   </script>
 </body>
