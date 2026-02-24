@@ -11,7 +11,6 @@ from lerobot.robots import Robot, RobotConfig
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 @RobotConfig.register_subclass("bi_yams_follower")
@@ -97,7 +96,7 @@ class BiYamsFollower(Robot):
         self.left_arm.configure()
         self.right_arm.configure()
 
-    def get_observation(self) -> dict[str, Any]:
+    def get_observation(self, with_cameras=True) -> dict[str, Any]:
         obs_dict = {}
 
         left_obs = self.left_arm.get_observation()
@@ -105,12 +104,13 @@ class BiYamsFollower(Robot):
 
         right_obs = self.right_arm.get_observation()
         obs_dict.update({f"right_{key}": value for key, value in right_obs.items()})
-
-        for cam_key, cam in self.cameras.items():
-            start = time.perf_counter()
-            obs_dict[cam_key] = cam.async_read()
-            dt_ms = (time.perf_counter() - start) * 1e3
-            logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
+        
+        if with_cameras:
+            for cam_key, cam in self.cameras.items():
+                start = time.perf_counter()
+                obs_dict[cam_key] = cam.async_read()
+                dt_ms = (time.perf_counter() - start) * 1e3
+                logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
 
         return obs_dict
 

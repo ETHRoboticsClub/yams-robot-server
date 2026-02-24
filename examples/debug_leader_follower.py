@@ -1,9 +1,9 @@
 import argparse
 import logging
-import time
+import os
 import signal
-import sys
 import subprocess
+import time
 from pathlib import Path
 
 import numpy as np
@@ -16,7 +16,8 @@ from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
-from utils import _free_port
+from utils.connection import _free_port, _wait_for_server
+from utils.live_joint_plot import start_joint_plotter
 
 logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
@@ -42,10 +43,10 @@ def parse_args():
 cleaned_up = False
 bi_leader = None
 bi_follower = None
-
+plotter = None
 
 def cleanup():
-    global cleaned_up
+    global cleaned_up, plotter
     if cleaned_up:
         return
     cleaned_up = True
@@ -54,32 +55,35 @@ def cleanup():
         bi_follower.disconnect()
     if bi_leader is not None:
         bi_leader.disconnect()
+    if plotter is not None:
+        plotter.close()
 
 def handle_sigint(signum, frame):
     cleanup()
     raise SystemExit(0)
 
-def print_arm_obs(bi_follower):
-    obs = bi_follower.get_observation()
+def monitor_arm_obs(bi_follower, bi_leader):
+    global plotter
+    obs = bi_follower.get_observation(with_cameras=False)
+    act = bi_leader.get_action()
+    plotter.push(obs, act)
+    # def fmt(value):
+    #     arr = np.asarray(value)
+    #     if arr.ndim == 0:
+    #         return f"{float(arr):.2f}"
+    #     return f"array(shape={arr.shape}, dtype={arr.dtype})"
 
-    def fmt(value):
-        arr = np.asarray(value)
-        if arr.ndim == 0:
-            return f"{float(arr):.2f}"
-        return np.array2string(arr, precision=2, suppress_small=True)
-
-    arm_obs = {
-        key: fmt(value)
-        for key, value in obs.items()
-        if key.startswith(("left_", "right_"))
-    }
-    print(arm_obs)
-
+    # arm_obs = {
+    #     key: fmt(value)
+    #     for key, value in obs.items()
+    #     if key.startswith(("left_", "right_"))
+    # }
+    # print(arm_obs)
 
 def main():
-    global bi_leader, bi_follower
+    global bi_leader, bi_follower, plotter
     subprocess.run(["sh", str(Path(__file__).resolve().parents[1] / "third_party/i2rt/scripts/reset_all_can.sh")], check=True)
-    
+
     args = parse_args()
     with open(ARMS_CONFIG_PATH, "r") as f:
         arms_config = yaml.safe_load(f)
@@ -93,35 +97,39 @@ def main():
     _free_port(right_follower_server_port)
 
     available_zed_cameras = ZEDCamera.find_cameras()
-    if not available_zed_cameras:
+    if available_zed_cameras:
+        zed_cam_id = available_zed_cameras[0]["id"]
+    else:
         print("No ZED cameras found.")
 
     # get first camera for now - generalise later
-    zed_cam_id = available_zed_cameras[0]["id"]
+    cameras = {
+        "left_wrist": OpenCVCameraConfig(
+            index_or_path=0,
+            fps=30,
+            width=640,
+            height=480,
+        ),
+        "right_wrist": OpenCVCameraConfig(
+            index_or_path=2,
+            fps=30,
+            width=640,
+            height=480,
+        ),
+    }
+    
+    if zed_cam_id:
+        cameras["topdown"] = ZEDCameraConfig(
+            camera_id=zed_cam_id,
+            width=640,
+            height=480,
+            fps=30,
+        )
 
     bi_follower_config = BiYamsFollowerConfig(
         left_arm_server_port=left_follower_server_port,
         right_arm_server_port=right_follower_server_port,
-        cameras={
-            "topdown": ZEDCameraConfig(
-                camera_id=zed_cam_id,
-                width=640,
-                height=480,
-                fps=30,
-            ),
-            "left_wrist": OpenCVCameraConfig(
-                index_or_path=0,
-                fps=30,
-                width=640,
-                height=480,
-            ),
-            "right_wrist": OpenCVCameraConfig(
-                index_or_path=2,
-                fps=30,
-                width=640,
-                height=480,
-            ),
-        },
+        cameras=cameras
     )
 
     bi_leader_config = BiYamsLeaderConfig(
@@ -138,10 +146,19 @@ def main():
 
         signal.signal(signal.SIGINT, handle_sigint)
         
-        hz = 10
+        hz = 100
+        plot_backend = "web"# if os.getenv("DISPLAY") else "web"
+        print(f"Using plot backend: {plot_backend}")
+        _free_port(8988)
+        plotter = start_joint_plotter(
+            bi_follower, hz=100, history_s=20, backend=plot_backend, web_port=8988
+        )
+        if plot_backend == "web":
+            _wait_for_server(8988, timeout=15.0, poll=0.2)
+            plotter.debug_webagg()
 
         while True:
-            print_arm_obs(bi_follower)
+            monitor_arm_obs(bi_follower, bi_leader)
             time.sleep(1 / hz)
         return
     finally:
