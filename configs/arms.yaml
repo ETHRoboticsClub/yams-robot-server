@@ -1,0 +1,5 @@
+follower:
+  left_arm:
+    server_port: 11333
+  right_arm:
+    server_port: 11334
