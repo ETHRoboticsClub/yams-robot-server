@@ -15,17 +15,12 @@ dependencies = [
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
-    "matplotlib>=3.10.8",
+    "pyzed",
 ]
 
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
-pyzed = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp310-cp310-linux_x86_64.whl" }
-
-[project.optional-dependencies]
-zed = [
-    "pyzed",
-]
+pyzed = { url = "https://download.stereolabs.com/zedsdk/5.2/whl/linux_x86_64/pyzed-5.2-cp310-cp310-linux_x86_64.whl" }
 
 [tool.hatch.metadata]
 allow-direct-references = true
