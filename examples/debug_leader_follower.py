@@ -3,8 +3,10 @@ import logging
 import time
 import signal
 import sys
+import subprocess
 from pathlib import Path
 
+import numpy as np
 import yaml
 
 from lerobot.cameras.opencv import OpenCVCameraConfig
@@ -37,8 +39,47 @@ def parse_args():
     )
     return parser.parse_args()
 
+cleaned_up = False
+bi_leader = None
+bi_follower = None
+
+
+def cleanup():
+    global cleaned_up
+    if cleaned_up:
+        return
+    cleaned_up = True
+    print("Cleaning up arm connections")
+    if bi_follower is not None:
+        bi_follower.disconnect()
+    if bi_leader is not None:
+        bi_leader.disconnect()
+
+def handle_sigint(signum, frame):
+    cleanup()
+    raise SystemExit(0)
+
+def print_arm_obs(bi_follower):
+    obs = bi_follower.get_observation()
+
+    def fmt(value):
+        arr = np.asarray(value)
+        if arr.ndim == 0:
+            return f"{float(arr):.2f}"
+        return np.array2string(arr, precision=2, suppress_small=True)
+
+    arm_obs = {
+        key: fmt(value)
+        for key, value in obs.items()
+        if key.startswith(("left_", "right_"))
+    }
+    print(arm_obs)
+
 
 def main():
+    global bi_leader, bi_follower
+    subprocess.run(["sh", str(Path(__file__).resolve().parents[1] / "third_party/i2rt/scripts/reset_all_can.sh")], check=True)
+    
     args = parse_args()
     with open(ARMS_CONFIG_PATH, "r") as f:
         arms_config = yaml.safe_load(f)
@@ -88,30 +129,20 @@ def main():
         right_arm_port=args.right_leader_port,
     )
 
-    bi_leader = BiYamsLeader(bi_leader_config)
-    bi_leader.connect()
-
-    bi_follower = BiYamsFollower(bi_follower_config)
-    bi_follower.connect()
-
-    cleaned_up = False
-
-    def cleanup():
-        nonlocal cleaned_up
-        if cleaned_up:
-            return
-        cleaned_up = True
-        print("Cleaning up arm connections")
-        bi_follower.disconnect()
-        bi_leader.disconnect()
-
-    def handle_sigint(signum, frame):
-        cleanup()
-        raise SystemExit(0)
-
-    signal.signal(signal.SIGINT, handle_sigint)
-
     try:
+        bi_leader = BiYamsLeader(bi_leader_config)
+        bi_leader.connect()
+
+        bi_follower = BiYamsFollower(bi_follower_config)
+        bi_follower.connect()
+
+        signal.signal(signal.SIGINT, handle_sigint)
+        
+        hz = 10
+
+        while True:
+            print_arm_obs(bi_follower)
+            time.sleep(1 / hz)
         return
     finally:
         cleanup()
