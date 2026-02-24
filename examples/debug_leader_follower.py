@@ -16,7 +16,7 @@ from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 
-from utils.connection import _free_port, _wait_for_server
+from utils.connection import _free_port
 from utils.live_joint_plot import start_joint_plotter
 
 logging.basicConfig(level=logging.INFO, force=True)
@@ -147,15 +147,10 @@ def main():
         signal.signal(signal.SIGINT, handle_sigint)
         
         hz = 100
-        plot_backend = "web"# if os.getenv("DISPLAY") else "web"
-        print(f"Using plot backend: {plot_backend}")
-        _free_port(8988)
+
         plotter = start_joint_plotter(
-            bi_follower, hz=100, history_s=20, backend=plot_backend, web_port=8988, camera_hz=5
+            bi_follower, hz=100, history_s=10, backend="web", web_port=8988, camera_hz=5
         )
-        if plot_backend == "web":
-            _wait_for_server(8988, timeout=15.0, poll=0.2)
-            plotter.debug_webagg()
 
         while True:
             monitor_arm_obs(bi_follower, bi_leader)

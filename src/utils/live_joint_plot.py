@@ -335,6 +335,11 @@ class LiveJointPlotter:
 """.encode('utf-8')
 
     def start(self) -> None:
+        if self.backend == 'web':
+            from utils.connection import _free_port
+
+            _free_port(self.web_port)
+
         plotter = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -388,6 +393,8 @@ class LiveJointPlotter:
         self._server = ThreadingHTTPServer(('127.0.0.1', self.web_port), Handler)
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
         self._thread.start()
+        if self.backend == 'web':
+            self.debug_webagg()
 
     def debug_webagg(self, timeout_s: float = 5.0) -> None:
         deadline = time.monotonic() + timeout_s
