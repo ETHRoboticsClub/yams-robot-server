@@ -65,7 +65,7 @@ cd yams-robot-server
 - Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions.
 - Ensure correct mapping of each leader arm to its USB port.
 - Identify the correct camera ids by running `python scripts/find_camera.py`
-
+- Calibrate follower arms with `uv run scripts/compute_offsets.py`
 ---
 
 ### Run Bimanual Teleoperation

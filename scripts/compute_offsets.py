@@ -1,12 +1,33 @@
+import argparse
 from pathlib import Path
 
 import yaml
 
 from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
+CALIBRATION_SCALES = {
+    "left": {
+        "joint_1": 1.0,
+        "joint_2": 1.0,
+        "joint_3": -1.0,
+        "joint_4": -1.0,
+        "joint_5": 1.0,
+        "joint_6": 1.0,
+    },
+    "right": {
+        "joint_1": 1.0,
+        "joint_2": -1.0,
+        "joint_3": 1.0,
+        "joint_4": 1.0,
+        "joint_5": 1.0,
+        "joint_6": 1.0,
+    },
+}
+
 
 def compute_offsets(
     leader: YamsLeader,
+    arm: str,
 ) -> dict:
     """
     Compute offsets from current position to neutral position.
@@ -46,32 +67,38 @@ def compute_offsets(
     # Compile calibration data
     calibration = {
         "offsets": offsets,
-        "scales": {
-            "joint_1": 1.0,
-            "joint_2": -1.0,
-            "joint_3": 1.0,
-            "joint_4": 1.0,
-            "joint_5": 1.0,
-            "joint_6": 1.0,
-        },
+        "scales": CALIBRATION_SCALES[arm],
     }
 
     return calibration
 
 
 def main():
-    leader_config = YamsLeaderConfig(port="/dev/ttyACM0", side="left")
-    leader = YamsLeader(leader_config)
-    leader.connect()
-
-    # Save to YAML file
-    output_path = Path(
-        f"src/lerobot_teleoperator_gello/calibration/leader_calibration_{leader_config.side}.yaml"
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--arm",
+        choices=["left", "right"],
+        help="Arm to calibrate. If omitted, calibrates both arms.",
     )
-    print(f"\nSaving calibration to {output_path}...")
-    with open(output_path, "w") as f:
-        yaml.dump(compute_offsets(leader), f, default_flow_style=False, sort_keys=False)
-    leader.disconnect()
+    args = parser.parse_args()
+
+    port_by_arm = {"left": "/dev/ttyACM0", "right": "/dev/ttyACM1"}
+    arms = [args.arm] if args.arm else ["left", "right"]
+
+    for arm in arms:
+        leader_config = YamsLeaderConfig(port=port_by_arm[arm], side=arm)
+        leader = YamsLeader(leader_config)
+        leader.connect()
+        output_path = Path(
+            f"src/lerobot_teleoperator_gello/calibration/leader_calibration_{arm}.yaml"
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        print(f"\nSaving calibration to {output_path}...")
+        with open(output_path, "w") as f:
+            yaml.dump(
+                compute_offsets(leader, arm), f, default_flow_style=False, sort_keys=False
+            )
+        leader.disconnect()
 
 
 if __name__ == "__main__":
