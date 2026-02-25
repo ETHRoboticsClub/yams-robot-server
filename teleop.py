@@ -28,16 +28,11 @@ HZ = 200
 def parse_args():
     parser = argparse.ArgumentParser(description="Bimanual leader-follower teleoperation")
     parser.add_argument(
-        "--left-leader-port",
-        type=str,
-        default="/dev/ttyACM0",
-        help="Serial port for the left leader arm (default: /dev/ttyACM0)",
-    )
-    parser.add_argument(
-        "--right-leader-port",
-        type=str,
-        default="/dev/ttyACM1",
-        help="Serial port for the right leader arm (default: /dev/ttyACM1)",
+        "--allow-no-cams",
+        "--allow_no_cams",
+        dest="allow_no_cams",
+        action="store_true",
+        help="Run teleop without configuring cameras",
     )
     return parser.parse_args()
 
@@ -48,7 +43,7 @@ def run_loop(bi_follower, bi_leader, plotter, trajectory):
         run_loop_iteration(bi_follower, bi_leader, plotter, trajectory)
 
 def run_loop_iteration(bi_follower, bi_leader, plotter, trajectory):
-    obs = bi_follower.get_observation(with_cameras=False)
+    obs = bi_follower.get_observation(with_cameras=True)
     bi_leader_action = bi_leader.get_action()
     if bi_leader_action is None:
         return

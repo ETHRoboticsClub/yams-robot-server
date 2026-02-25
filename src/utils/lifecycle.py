@@ -40,6 +40,6 @@ def build_cleanup_and_sigint(
 
 
 def run_pre_setup(*ports: int):
-    subprocess.run(["sh", str(RESET_ALL_CAN_SCRIPT)], check=True)
+    subprocess.run(["bash", str(RESET_ALL_CAN_SCRIPT)], check=True)
     for port in ports:
         _free_port(port)
