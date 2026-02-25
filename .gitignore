@@ -1,6 +1,7 @@
 .DS_Store
 outputs
 run_history
+ZED_Diagnostic_Results.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
