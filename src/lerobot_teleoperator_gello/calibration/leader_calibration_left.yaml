@@ -7,8 +7,8 @@ offsets:
   joint_6: -39
 scales:
   joint_1: 1.0
-  joint_2: -1.0
+  joint_2: 1.0
   joint_3: -1.0
   joint_4: -1.0
-  joint_5: -1.0
+  joint_5: 1.0
   joint_6: 1.0
