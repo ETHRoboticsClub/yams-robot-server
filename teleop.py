@@ -20,8 +20,9 @@ logging.basicConfig(
     force=True,
 )
 logger = logging.getLogger(__name__)
-ARMS_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "arms.yaml"
-RUN_HISTORY_DIR = Path(__file__).resolve().parents[1] / "run_history"
+PROJECT_ROOT = Path(__file__).resolve().parent
+ARMS_CONFIG_PATH = PROJECT_ROOT / "configs" / "arms.yaml"
+RUN_HISTORY_DIR = PROJECT_ROOT / "run_history"
 HZ = 200
 
 def parse_args():
