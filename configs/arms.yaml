@@ -22,6 +22,10 @@ follower:
       gripper: Gripper
 
 leader:
+  left_arm:
+    port: /dev/ttyACM1
+  right_arm:
+    port: /dev/ttyACM0
   joint_labels:
     left:
       joint_1: Joint 1

@@ -24,7 +24,7 @@ cd yams-robot-server
    1. Install the ZED SDK (Download script from https://www.stereolabs.com/en-fr/developers and run).
    2. Copy the .whl (Python wheel) file into `src/lerobot_camera_zed/pyzed/`, then run:
    ```bash
-   uv sync --extra zed
+   uv sync
    ```
 
 ## Usage
@@ -63,7 +63,9 @@ cd yams-robot-server
 > **Important:** Read this before running any teleoperation or recording commands.
 
 - Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions.
-- Ensure correct mapping of each leader arm to its USB port.
+- Ensure correct mapping of each leader arm to its USB port. **If they are swapped arms behave erratically and damage themselves. They may switch when swapping around USB ports.**
+  - Check port mapping with ls `/dev/ttyACM*`
+  - Make sure it's correct in (arms.yaml)
 - Identify the correct camera ids by running `python scripts/find_camera.py`
 - Calibrate follower arms with `uv run scripts/compute_offsets.py`
 ---

@@ -17,26 +17,31 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
         arms_config = yaml.safe_load(f)
 
     follower_config = arms_config["follower"]
+    leader_config = arms_config["leader"]
     follower_joint_label_map = build_joint_label_map(follower_config)
-    leader_joint_label_map = build_joint_label_map(arms_config.get("leader", {}))
+    leader_joint_label_map = build_joint_label_map(leader_config)
     camera_label_map = arms_config.get("cameras", {}).get("labels", {})
     left_follower_server_port = follower_config["left_arm"]["server_port"]
     right_follower_server_port = follower_config["right_arm"]["server_port"]
+    left_leader_port = leader_config["left_arm"]["port"]
+    right_leader_port = leader_config["right_arm"]["port"]
     run_pre_setup(left_follower_server_port, right_follower_server_port)
 
-    zed_cam_id = None
-    available_zed_cameras = ZEDCamera.find_cameras()
-    if available_zed_cameras:
-        zed_cam_id = available_zed_cameras[0]["id"]
+    cameras = {}
+    if args.allow_no_cams:
+        logger.info("Skipping camera setup (--allow-no-cams enabled)")
     else:
-        logger.warning("No ZED cameras found.")
-
-    cameras = {
-        "left_wrist": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
-        "right_wrist": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
-    }
-    if zed_cam_id:
-        cameras["topdown"] = ZEDCameraConfig(camera_id=zed_cam_id, width=640, height=480, fps=30)
+        available_zed_cameras = ZEDCamera.find_cameras()
+        logger.info("Detected ZED cameras: %s", available_zed_cameras)
+        if not available_zed_cameras:
+            raise Exception("Zed camera not found (use --allow-no-cams to continue without cameras)")
+        zed_cam_id = available_zed_cameras[0]["id"]
+        logger.info("Using ZED camera id=%s", zed_cam_id)
+        cameras = {
+            "left_wrist": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
+            "right_wrist": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
+            "topdown": ZEDCameraConfig(camera_id=zed_cam_id, width=640, height=480, fps=30),
+        }
 
     bi_follower = BiYamsFollower(
         BiYamsFollowerConfig(
@@ -46,7 +51,7 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
         )
     )
     bi_leader = BiYamsLeader(
-        BiYamsLeaderConfig(left_arm_port=args.left_leader_port, right_arm_port=args.right_leader_port)
+        BiYamsLeaderConfig(left_arm_port=left_leader_port, right_arm_port=right_leader_port)
     )
     bi_leader.connect()
     bi_follower.connect()
