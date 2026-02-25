@@ -3,6 +3,7 @@ import os
 import queue
 import threading
 import time
+from collections import deque
 from base64 import b64encode
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -59,6 +60,10 @@ class LiveJointPlotter:
         self._stop = threading.Event()
         self._clients: set[queue.Queue[bytes]] = set()
         self._clients_lock = threading.Lock()
+        self._history_lock = threading.Lock()
+        self._history_buffer_s = max(300.0, history_s)
+        self._history_max_points = max(8, int(hz * self._history_buffer_s))
+        self._history: deque[tuple[float, bytes]] = deque()
         self._last_camera_t = 0.0
 
     def _html(self) -> bytes:
@@ -395,9 +400,13 @@ class LiveJointPlotter:
                     client_q: queue.Queue[bytes] = queue.Queue(maxsize=128)
                     with plotter._clients_lock:
                         plotter._clients.add(client_q)
+                    with plotter._history_lock:
+                        history = [frame for _, frame in plotter._history]
 
                     try:
                         self.wfile.write(b'retry: 1000\n\n')
+                        for frame in history:
+                            self.wfile.write(frame)
                         self.wfile.flush()
                         while not plotter._stop.is_set():
                             try:
@@ -457,6 +466,11 @@ class LiveJointPlotter:
             self._last_camera_t = now
         payload = json.dumps({'t': now, 'obs': obs, 'act': act, 'cams': cams}, separators=(',', ':'))
         frame = f'data: {payload}\n\n'.encode('utf-8')
+        with self._history_lock:
+            self._history.append((now, frame))
+            t_min = now - self._history_buffer_s
+            while self._history and (len(self._history) > self._history_max_points or self._history[0][0] < t_min):
+                self._history.popleft()
 
         with self._clients_lock:
             clients = list(self._clients)
