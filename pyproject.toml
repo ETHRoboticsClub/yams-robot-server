@@ -12,6 +12,7 @@ dependencies = [
     "opencv-python",
     "dynamixel-sdk>=3.8.4",
     "lerobot==0.4.0",
+    "huggingface-hub>=0.28.1",
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",

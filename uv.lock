@@ -2363,6 +2363,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "dynamixel-sdk" },
+    { name = "huggingface-hub" },
     { name = "i2rt" },
     { name = "ipykernel" },
     { name = "lerobot" },
@@ -2374,6 +2375,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "dynamixel-sdk", specifier = ">=3.8.4" },
+    { name = "huggingface-hub", specifier = ">=0.28.1" },
     { name = "i2rt", editable = "third_party/i2rt" },
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "lerobot", specifier = "==0.4.0" },
