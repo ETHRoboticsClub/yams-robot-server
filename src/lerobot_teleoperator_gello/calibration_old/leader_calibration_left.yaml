@@ -1,10 +1,10 @@
 offsets:
   joint_1: 1055
-  joint_2: 79
-  joint_3: -2031
-  joint_4: 931
-  joint_5: 1034
-  joint_6: -55
+  joint_2: 85
+  joint_3: -2030
+  joint_4: 994
+  joint_5: 1068
+  joint_6: -39
 scales:
   joint_1: 1.0
   joint_2: 1.0
