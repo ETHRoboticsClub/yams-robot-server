@@ -198,6 +198,8 @@ def run_loop_iteration(bi_follower, bi_leader, plotter):
         return
 
     plotter.push(obs, bi_leader_action)
+    for msg in plotter.pop_control_messages():
+        logger.info("UI control message: %s", msg)
     trajectory.append({"t": time.time(), "obs": _joint_only(obs), "act": _joint_only(bi_leader_action)})
 
     bi_follower.send_action(bi_leader_action)
