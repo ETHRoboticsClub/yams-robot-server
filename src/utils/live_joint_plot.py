@@ -182,11 +182,18 @@ class LiveJointPlotter:
           const y = 10 + i * ((h - 20) / 4);
           ctx.beginPath(); ctx.moveTo(10, y); ctx.lineTo(w - 10, y); ctx.stroke();
         }}
+        let maxAbs = 0.1;
+        for (const p of this.points) maxAbs = Math.max(maxAbs, Math.abs(p.value));
+        maxAbs *= 1.1;
+        const minY = -maxAbs, maxY = maxAbs;
+        const axisY = 10 + (1 - (0 - minY) / Math.max(1e-6, (maxY - minY))) * (h - 20);
+        ctx.beginPath();
+        ctx.strokeStyle = '#9ca3af';
+        ctx.lineWidth = 1.5;
+        ctx.moveTo(10, axisY);
+        ctx.lineTo(w - 10, axisY);
+        ctx.stroke();
         if (this.points.length < 2) return;
-        let minY = Infinity, maxY = -Infinity;
-        for (const p of this.points) {{ minY = Math.min(minY, p.value); maxY = Math.max(maxY, p.value); }}
-        const pad = Math.max(0.02, 0.1 * (maxY - minY || 1));
-        minY -= pad; maxY += pad;
         const t0 = this.points[0].t;
         const t1 = this.points[this.points.length - 1].t;
         ctx.beginPath();
