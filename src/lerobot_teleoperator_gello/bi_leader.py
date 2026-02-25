@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 from lerobot.teleoperators.teleoperator import Teleoperator, TeleoperatorConfig
@@ -110,5 +111,6 @@ class BiYamsLeader(Teleoperator):
         raise NotImplementedError
 
     def disconnect(self) -> None:
-        self.left_arm.disconnect()
-        self.right_arm.disconnect()
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            ex.submit(self.left_arm.disconnect)
+            ex.submit(self.right_arm.disconnect)

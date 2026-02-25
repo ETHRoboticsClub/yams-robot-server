@@ -1,5 +1,6 @@
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any
@@ -139,8 +140,9 @@ class BiYamsFollower(Robot):
         return {**prefixed_send_action_left, **prefixed_send_action_right}
 
     def disconnect(self):
-        self.left_arm.disconnect()
-        self.right_arm.disconnect()
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            ex.submit(self.left_arm.disconnect)
+            ex.submit(self.right_arm.disconnect)
 
         for cam in self.cameras.values():
             cam.disconnect()
