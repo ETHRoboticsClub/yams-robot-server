@@ -1,10 +1,13 @@
 import argparse
 from collections import defaultdict
+from functools import wraps
+import inspect
 import json
 import logging
 import os
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
@@ -148,6 +151,60 @@ def _format_timing(stats) -> str:
     return " | ".join(parts)
 
 
+def time_each_line(fn):
+    src_lines, start = inspect.getsourcelines(fn)
+    labels = {
+        start + i: (line.strip() or "<blank>")[:40]
+        for i, line in enumerate(src_lines)
+        if line.strip() and not line.strip().startswith("#")
+    }
+
+    @wraps(fn)
+    def wrapped(*args, **kwargs):
+        line_dt = defaultdict(float)
+        prev_line = None
+        prev_t = time.perf_counter()
+
+        def tracer(frame, event, arg):
+            nonlocal prev_line, prev_t
+            if frame.f_code is fn.__code__ and event == "line":
+                now = time.perf_counter()
+                if prev_line is not None:
+                    line_dt[prev_line] += now - prev_t
+                prev_line = frame.f_lineno
+                prev_t = now
+            return tracer
+
+        prev_trace = sys.gettrace()
+        sys.settrace(tracer)
+        try:
+            out = fn(*args, **kwargs)
+        finally:
+            now = time.perf_counter()
+            if prev_line is not None:
+                line_dt[prev_line] += now - prev_t
+            sys.settrace(prev_trace)
+
+        return out, {labels.get(n, f"L{n}"): dt for n, dt in line_dt.items()}
+
+    return wrapped
+
+
+# @time_each_line
+def run_loop_iteration(bi_follower, bi_leader, plotter):
+    obs = bi_follower.get_observation(with_cameras=False)
+    bi_leader_action = bi_leader.get_action()
+    if bi_leader_action is None:
+        return
+
+    plotter.push(obs, bi_leader_action)
+    trajectory.append({"t": time.time(), "obs": _joint_only(obs), "act": _joint_only(bi_leader_action)})
+
+    bi_follower.send_action(bi_leader_action)
+
+    time.sleep(1 / HZ)
+
+
 def main():
     global bi_leader, bi_follower, plotter
     subprocess.run(["sh", str(Path(__file__).resolve().parents[1] / "third_party/i2rt/scripts/reset_all_can.sh")], check=True)
@@ -231,58 +288,37 @@ def main():
             camera_label_map=camera_label_map,
         )
 
-        reset_after_seconds = 10
-        i = 0
-        timing = _new_timing_stats()
-        timing_window_start = time.perf_counter()
-        timing_window_iters = 0
         while True:
-            # monitor_arm_obs(bi_follower, bi_leader)
-            loop_start = time.perf_counter()
+            run_loop_iteration(bi_follower, bi_leader, plotter)
 
-            t = time.perf_counter()
-            obs = bi_follower.get_observation(with_cameras=False)
-            _record_timing(timing, "obs", time.perf_counter() - t)
+        # reset_after_seconds = 10
+        # i = 0
+        # timing = _new_timing_stats()
+        # timing_window_start = time.perf_counter()
+        # timing_window_iters = 0
+        # while True:
+        #     _, line_timing = run_loop_iteration(bi_follower, bi_leader, plotter)
+        #     for name, dt_s in line_timing.items():
+        #         _record_timing(timing, name, dt_s)
 
-            t = time.perf_counter()
-            act = bi_leader.get_action()
-            _record_timing(timing, "act", time.perf_counter() - t)
-
-            t = time.perf_counter()
-            plotter.push(obs, act)
-            _record_timing(timing, "plot", time.perf_counter() - t)
-
-            t = time.perf_counter()
-            trajectory.append({
-                "t": time.time(),
-                "obs": _joint_only(obs),
-                "act": _joint_only(act),
-            })
-            _record_timing(timing, "traj", time.perf_counter() - t)
-
-            t = time.perf_counter()
-            time.sleep(1 / HZ)
-            _record_timing(timing, "sleep", time.perf_counter() - t)
-            _record_timing(timing, "loop", time.perf_counter() - loop_start)
-
-            i += 1
-            timing_window_iters += 1
-            if i % HZ == 0:
-                wall_s = time.perf_counter() - timing_window_start
-                logger.info(
-                    "timings over %.2fs (%d loops): %s",
-                    wall_s,
-                    timing_window_iters,
-                    _format_timing(timing),
-                )
-                logger.info("%s loop-seconds passed", i / HZ)
-                timing = _new_timing_stats()
-                timing_window_start = time.perf_counter()
-                timing_window_iters = 0
-            # if i == reset_after_seconds * HZ:
-            #     logger.info("Resetting arms")
-            #     for arm in [bi_follower.left_arm, bi_follower.right_arm]:
-            #         slow_move(arm, {f"{name}.pos": 0.0 for name in arm.config.joint_names})
+        #     i += 1
+        #     timing_window_iters += 1
+        #     if i % HZ == 0:
+        #         wall_s = time.perf_counter() - timing_window_start
+        #         logger.info(
+        #             "timings over %.2fs (%d loops): %s",
+        #             wall_s,
+        #             timing_window_iters,
+        #             _format_timing(timing),
+        #         )
+        #         logger.info("%s loop-seconds passed", i / HZ)
+        #         timing = _new_timing_stats()
+        #         timing_window_start = time.perf_counter()
+        #         timing_window_iters = 0
+        #     if i == reset_after_seconds * HZ:
+        #         logger.info("Resetting arms")
+        #         for arm in [bi_follower.left_arm, bi_follower.right_arm]:
+        #             slow_move(arm, {f"{name}.pos": 0.0 for name in arm.config.joint_names})
 
         return
     finally:
