@@ -23,9 +23,9 @@ follower:
 
 leader:
   left_arm:
-    port: /dev/ttyACM1
-  right_arm:
     port: /dev/ttyACM0
+  right_arm:
+    port: /dev/ttyACM1
   joint_labels:
     left:
       joint_1: Joint 1
@@ -49,3 +49,19 @@ cameras:
     left_wrist: Left Wrist
     right_wrist: Right Wrist
     topdown: Topdown
+  devices:
+    left_wrist:
+      path: /dev/video2
+      width: 640
+      height: 480
+      fps: 30
+    right_wrist:
+      path: /dev/video0
+      width: 640
+      height: 480
+      fps: 30
+    topdown:
+      path: /dev/video4
+      width: 1280
+      height: 480
+      fps: 15
