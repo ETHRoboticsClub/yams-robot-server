@@ -7,7 +7,7 @@ name = "yams-robot-server"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = "==3.10.*"
+requires-python = ">=3.10"
 dependencies = [
     "opencv-python",
     "dynamixel-sdk>=3.8.4",
@@ -21,6 +21,17 @@ dependencies = [
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
 pyzed = { url = "https://download.stereolabs.com/zedsdk/5.2/whl/linux_x86_64/pyzed-5.2-cp310-cp310-linux_x86_64.whl" }
+
+[project.entry-points."lerobot.teleoperators"]
+bi_yams_leader = "lerobot_teleoperator_gello.bi_leader"
+yams_leader = "lerobot_teleoperator_gello.leader"
+
+[project.entry-points."lerobot.robots"]
+yams_follower = "lerobot_robot_yams.follower"
+bi_yams_follower = "lerobot_robot_yams.bi_follower"
+
+[project.entry-points."lerobot.cameras"]
+zed_camera = "lerobot_camera_zed"
 
 [tool.hatch.metadata]
 allow-direct-references = true
