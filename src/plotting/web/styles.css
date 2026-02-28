@@ -64,8 +64,7 @@ h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: u
   gap: 4px;
   min-width: 140px;
 }
-.control-group label,
-.control-form label { font-size: 12px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.05em; }
+label { font-size: 12px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.05em; }
 input[type="number"],
 input[type="text"] {
   width: 100%;
@@ -75,8 +74,6 @@ input[type="text"] {
   background: #fff;
   font: inherit;
 }
-.control-form { display: grid; gap: 4px; }
-.control-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
 button {
   border: 1px solid #0ea5e9;
   color: #075985;
@@ -88,6 +85,12 @@ button {
   cursor: pointer;
 }
 button:hover { background: #bae6fd; }
+.record-btn.recording {
+  border-color: #ef4444;
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+.record-btn.recording:hover { background: #fecaca; }
 .control-result { grid-column: 1 / -1; font-size: 12px; color: var(--sub); min-height: 18px; }
 .section-head {
   display: flex;
@@ -138,5 +141,4 @@ canvas {
 }
 @media (max-width: 700px) {
   .controls { grid-template-columns: 1fr; }
-  .control-row { grid-template-columns: 1fr; }
 }

@@ -46,17 +46,20 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
         width = int(cam.get("width", 640))
         height = int(cam.get("height", 480))
         fps = int(cam.get("fps", 30))
+        fourcc = cam.get("fourcc")
         if not can_read_camera(path):
             if args.allow_no_cams:
                 logger.warning("%s camera (%s) not readable, skipping", name, path)
                 continue
             raise Exception(f"{name} camera ({path}) not readable (use --allow-no-cams to continue)")
-        logger.info("Using %s camera %s at %sx%s@%s", name, path, width, height, fps)
+        fourcc_msg = f", fourcc={fourcc}" if fourcc else ""
+        logger.info("Using %s camera %s at %sx%s@%s%s", name, path, width, height, fps, fourcc_msg)
         configured_cameras[name] = OpenCVCameraConfig(
             index_or_path=path,
             width=width,
             height=height,
             fps=fps,
+            fourcc=fourcc,
         )
 
     if not configured_cameras and not args.allow_no_cams:

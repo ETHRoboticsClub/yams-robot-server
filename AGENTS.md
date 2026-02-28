@@ -1,2 +1,2 @@
 Use `uv run` to run python.
-Keep code as short as readable as possible. Don't add tons of try-catch and cases for input. For example, it's ok if something crashes because of unexpected input. The priority is short, readable code that uses the most standard functions for the task.
+Keep code as short as readable as possible. Don't add tons of try-catch and cases for input. For example, it's ok if something crashes because of unexpected input. The priority is short, readable code that uses the most standard functions for the task. Keep code extremely readable: every separate logical piece should be in its own function, use files in utils instead of putting stuff in the main file.

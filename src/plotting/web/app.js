@@ -8,8 +8,7 @@ const rightKeys = keys.filter((k) => k.startsWith('right_'));
 
 const streamStatusEl = document.getElementById('stream-status');
 const historyInput = document.getElementById('history-s');
-const controlForm = document.getElementById('control-form');
-const controlText = document.getElementById('control-text');
+const trajectoryToggle = document.getElementById('trajectory-toggle');
 const controlResult = document.getElementById('control-result');
 const followerStatusEl = document.getElementById('follower-status');
 const leaderStatusEl = document.getElementById('leader-status');
@@ -18,6 +17,7 @@ const cameraGridEl = document.getElementById('camera-grid');
 
 let historyS = cfg.historyS;
 let maxPoints = Math.max(8, Math.round(hz * historyS));
+let trajectoryRecording = false;
 historyInput.value = historyS.toFixed(0);
 
 function setStreamStatus(text, ok) {
@@ -211,8 +211,13 @@ class Dashboard {
   }
 }
 
-async function sendControl(text) {
-  const payload = { type: 'note', text };
+function setTrajectoryState(recording) {
+  trajectoryRecording = recording;
+  trajectoryToggle.textContent = recording ? 'Stop Trajectory' : 'Start Trajectory';
+  trajectoryToggle.classList.toggle('recording', recording);
+}
+
+async function sendControl(payload) {
   const res = await fetch('/control', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -238,18 +243,20 @@ historyInput.onchange = () => {
   dashboard.trimAll();
 };
 
-controlForm.onsubmit = async (evt) => {
-  evt.preventDefault();
-  const text = controlText.value.trim();
-  if (!text) return;
+trajectoryToggle.onclick = async () => {
+  const nextRecording = !trajectoryRecording;
+  const command = nextRecording ? 'start' : 'stop';
   try {
-    await sendControl(text);
-    controlResult.textContent = `sent: ${text}`;
-    controlText.value = '';
+    await sendControl({ type: 'trajectory', command });
+    setTrajectoryState(nextRecording);
+    controlResult.textContent = nextRecording
+      ? 'trajectory recording'
+      : 'trajectory saved to trajectories/';
   } catch (err) {
-    controlResult.textContent = `failed to send: ${err}`;
+    controlResult.textContent = `failed to ${command} trajectory: ${err}`;
   }
 };
+setTrajectoryState(false);
 
 function tick() {
   dashboard.render();

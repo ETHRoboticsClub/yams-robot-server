@@ -15,16 +15,23 @@ def time_each_line(fn):
 
     @wraps(fn)
     def wrapped(*args, **kwargs):
-        line_dt = defaultdict(float)
+        line_stats = defaultdict(lambda: {"n": 0, "sum": 0.0, "min": float("inf"), "max": 0.0})
         prev_line = None
         prev_t = time.perf_counter()
+
+        def record(line_no, dt_s):
+            s = line_stats[line_no]
+            s["n"] += 1
+            s["sum"] += dt_s
+            s["min"] = min(s["min"], dt_s)
+            s["max"] = max(s["max"], dt_s)
 
         def tracer(frame, event, arg):
             nonlocal prev_line, prev_t
             if frame.f_code is fn.__code__ and event == "line":
                 now = time.perf_counter()
                 if prev_line is not None:
-                    line_dt[prev_line] += now - prev_t
+                    record(prev_line, now - prev_t)
                 prev_line = frame.f_lineno
                 prev_t = now
             return tracer
@@ -36,10 +43,18 @@ def time_each_line(fn):
         finally:
             now = time.perf_counter()
             if prev_line is not None:
-                line_dt[prev_line] += now - prev_t
+                record(prev_line, now - prev_t)
             sys.settrace(prev_trace)
 
-        return out, {labels.get(n, f"L{n}"): dt for n, dt in line_dt.items()}
+        report = {}
+        for line_no, s in line_stats.items():
+            report[labels.get(line_no, f"L{line_no}")] = {
+                "n": s["n"],
+                "avg": s["sum"] / s["n"],
+                "min": s["min"],
+                "max": s["max"],
+            }
+        return out, report
 
     return wrapped
 
@@ -65,3 +80,13 @@ def format_timing(stats) -> str:
             f"{name}: avg={s['sum']/s['n']*1e3:.1f}ms min={s['min']*1e3:.1f}ms max={s['max']*1e3:.1f}ms"
         )
     return " | ".join(parts)
+
+
+def format_line_timing(line_timing: dict[str, dict[str, float | int]]) -> str:
+    return " | ".join(
+        (
+            f"{name}: avg={stats['avg'] * 1e3:.2f}ms "
+            f"min={stats['min'] * 1e3:.2f}ms max={stats['max'] * 1e3:.2f}ms"
+        )
+        for name, stats in sorted(line_timing.items(), key=lambda item: item[1]["avg"], reverse=True)
+    )

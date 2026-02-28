@@ -62,6 +62,7 @@ cameras:
       fps: 30
     topdown:
       path: /dev/video4
-      width: 1280
-      height: 480
+      width: 3200
+      height: 1200
       fps: 15
+      fourcc: MJPG

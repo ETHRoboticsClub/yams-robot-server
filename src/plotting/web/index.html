@@ -23,14 +23,11 @@
         <label for="history-s">History (s)</label>
         <input id="history-s" type="number" min="1" step="1" />
       </div>
-      <form id="control-form" class="control-form">
-        <label for="control-text">Teleop message</label>
-        <div class="control-row">
-          <input id="control-text" type="text" placeholder="collect_trajectory start" />
-          <button type="submit">Send</button>
-        </div>
-      </form>
-      <div id="control-result" class="control-result"></div>
+      <div class="control-group">
+        <label for="trajectory-toggle">Trajectory</label>
+        <button id="trajectory-toggle" type="button" class="record-btn">Start Trajectory</button>
+      </div>
+      <div id="control-result" class="control-result">trajectory idle</div>
     </section>
 
     <section class="panel">
