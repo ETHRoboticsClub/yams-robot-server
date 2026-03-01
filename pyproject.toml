@@ -18,6 +18,9 @@ dependencies = [
     "pyzed",
 ]
 
+[project.scripts]
+lerobot_setup_motors_yams = "lerobot_teleoperator_gello.setup_motors_yams:main"
+
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
 pyzed = { url = "https://download.stereolabs.com/zedsdk/5.2/whl/linux_x86_64/pyzed-5.2-cp310-cp310-linux_x86_64.whl" }
