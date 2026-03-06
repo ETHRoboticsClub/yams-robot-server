@@ -141,23 +141,12 @@ class YamsLeader(Teleoperator):
 
         start = time.perf_counter()
 
-        raw_positions = None
-        for _ in range(3):
-            try:
-                raw_positions = self.bus.sync_read(
-                    normalize=False, data_name="Present_Position"
-                )
-                break
-            except Exception as e:
-                msg = str(e)
-                if "Interrupted system call" in msg or "Port is in use" in msg:
-                    self.bus.port_handler.is_using = False
-                    time.sleep(0.001)
-                    continue
-                print(f"Error reading from {self}: {e}")
-                return None
-        if raw_positions is None:
-            print(f"Error reading from {self}: failed after retry")
+        try:
+            raw_positions = self.bus.sync_read(
+                normalize=False, data_name="Present_Position"
+            )
+        except Exception as e:
+            print(f"Error reading from {self}: {e}")
             return None
 
         calibration_offsets = self.calibration.get("offsets", {})
