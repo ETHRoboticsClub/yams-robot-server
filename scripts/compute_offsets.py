@@ -5,24 +5,17 @@ import yaml
 
 from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
-CALIBRATION_SCALES = {
-    "left": {
-        "joint_1": 1.0,
-        "joint_2": 1.0,
-        "joint_3": -1.0,
-        "joint_4": -1.0,
-        "joint_5": 1.0,
-        "joint_6": 1.0,
-    },
-    "right": {
-        "joint_1": 1.0,
-        "joint_2": -1.0,
-        "joint_3": 1.0,
-        "joint_4": 1.0,
-        "joint_5": 1.0,
-        "joint_6": 1.0,
-    },
-}
+ARMS_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "arms.yaml"
+
+
+def load_scales(arm: str) -> dict:
+    with open(ARMS_CONFIG_PATH, "r") as f:
+        motors = yaml.safe_load(f)["leader"][f"{arm}_arm"]["motors"]
+    return {
+        name: cfg["calibration_scale"]
+        for name, cfg in motors.items()
+        if name != "gripper"
+    }
 
 
 def compute_offsets(
@@ -67,7 +60,7 @@ def compute_offsets(
     # Compile calibration data
     calibration = {
         "offsets": offsets,
-        "scales": CALIBRATION_SCALES[arm],
+        "scales": load_scales(arm),
     }
 
     return calibration

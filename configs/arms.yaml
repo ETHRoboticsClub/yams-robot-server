@@ -42,31 +42,37 @@ leader:
         id: 1
         model: xm430-w350
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 1
       joint_2:
         id: 2
         model: xm430-w350
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 2
       joint_3:
         id: 3
         model: xm430-w350
         norm_mode: DEGREES
+        calibration_scale: -1.0
         label: Joint 3
       joint_4:
         id: 4
         model: xl330-m077
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 4
       joint_5:
         id: 5
         model: xl330-m077
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 5
       joint_6:
         id: 6
         model: xl330-m077
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 6
       gripper:
         id: 7
@@ -80,31 +86,37 @@ leader:
         id: 8
         model: xm430-w350
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 1
       joint_2:
         id: 9
         model: xm430-w350
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 2
       joint_3:
         id: 10
         model: xm430-w210
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 3
       joint_4:
         id: 11
         model: xl330-m077
         norm_mode: DEGREES
+        calibration_scale: -1.0
         label: Joint 4
       joint_5:
         id: 12
         model: xl330-m077
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 5
       joint_6:
         id: 13
         model: xl330-m077
         norm_mode: DEGREES
+        calibration_scale: 1.0
         label: Joint 6
       gripper:
         id: 14
