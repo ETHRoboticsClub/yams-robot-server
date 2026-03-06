@@ -38,8 +38,8 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
         zed_cam_id = available_zed_cameras[0]["id"]
         logger.info("Using ZED camera id=%s", zed_cam_id)
         cameras = {
-            "left_wrist": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480),
-            "right_wrist": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480),
+            "left_wrist": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480, fourcc="MJPG"),
+            "right_wrist": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480, fourcc="MJPG"),
             "topdown": ZEDCameraConfig(camera_id=zed_cam_id, width=640, height=480, fps=30),
         }
 

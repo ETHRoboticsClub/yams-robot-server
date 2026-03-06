@@ -82,7 +82,7 @@ def main():
     )
     args = parser.parse_args()
 
-    port_by_arm = {"left": "/dev/ttyACM0", "right": "/dev/ttyACM1"}
+    port_by_arm = {"left": "/dev/ttyUSB0", "right": "/dev/ttyUSB1"}
     arms = [args.arm] if args.arm else ["left", "right"]
 
     for arm in arms:
