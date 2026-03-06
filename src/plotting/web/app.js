@@ -3,6 +3,7 @@ const keys = cfg.keys;
 const labelMapBySource = cfg.labels;
 const hz = cfg.hz;
 const maxBufferPoints = cfg.maxBufferPoints;
+const taskGoals = cfg.taskGoals || {};
 const leftKeys = keys.filter((k) => k.startsWith('left_'));
 const rightKeys = keys.filter((k) => k.startsWith('right_'));
 
@@ -261,33 +262,76 @@ recordBtn.onclick = async () => {
 };
 
 async function loadTree() {
+  const task = taskSelect.value;
+  if (!task) { trajTreeEl.innerHTML = ''; return; }
   try {
     const res = await fetch('/trajectories');
     const tree = await res.json();
     trajTreeEl.innerHTML = '';
-    const tasks = Object.keys(tree).sort();
-    if (!tasks.length) { trajTreeEl.textContent = 'No trajectories yet.'; return; }
-    for (const task of tasks) {
-      const details = document.createElement('details');
-      details.open = true;
-      const summary = document.createElement('summary');
-      summary.textContent = `${task} (${tree[task].length})`;
-      details.appendChild(summary);
-      const ul = document.createElement('ul');
-      for (const ep of tree[task]) {
-        const li = document.createElement('li');
-        li.textContent = `episode ${ep}`;
-        ul.appendChild(li);
-      }
-      details.appendChild(ul);
-      trajTreeEl.appendChild(details);
+
+    const eps = tree[task] || [];
+    const goodCount = eps.filter(e => !e.marked_bad).length;
+    const goal = taskGoals[task] ?? null;
+
+    // Progress bar
+    if (goal !== null) {
+      const pct = Math.min(100, Math.round((goodCount / goal) * 100));
+      const progWrap = document.createElement('div');
+      progWrap.className = 'traj-progress';
+      progWrap.innerHTML = `
+        <div class="traj-progress-label">
+          <span>${goodCount} / ${goal} episodes</span>
+          <span>${pct}%</span>
+        </div>
+        <div class="traj-progress-bar"><div class="traj-progress-fill" style="width:${pct}%"></div></div>
+      `;
+      trajTreeEl.appendChild(progWrap);
+    } else {
+      const countEl = document.createElement('div');
+      countEl.className = 'traj-count';
+      countEl.textContent = `${goodCount} episode${goodCount !== 1 ? 's' : ''} collected`;
+      trajTreeEl.appendChild(countEl);
     }
+
+    if (!eps.length) {
+      const empty = document.createElement('div');
+      empty.className = 'traj-empty';
+      empty.textContent = 'No episodes yet.';
+      trajTreeEl.appendChild(empty);
+      return;
+    }
+
+    const ul = document.createElement('ul');
+    ul.className = 'traj-ep-list';
+    for (const ep of [...eps].reverse()) {
+      const li = document.createElement('li');
+      li.className = 'traj-ep' + (ep.marked_bad ? ' bad' : '') + (ep.session ? ' session' : '');
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'ep-name';
+      nameSpan.textContent = `episode ${ep.name}`;
+      li.appendChild(nameSpan);
+      const btn = document.createElement('button');
+      btn.className = 'mark-bad-btn';
+      btn.textContent = ep.marked_bad ? 'restore' : '\u2717';
+      btn.onclick = async () => {
+        await fetch('/mark_bad', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task, episode: ep.name, bad: !ep.marked_bad }),
+        });
+        loadTree();
+      };
+      li.appendChild(btn);
+      ul.appendChild(li);
+    }
+    trajTreeEl.appendChild(ul);
   } catch (err) {
     trajTreeEl.textContent = `Error: ${err}`;
   }
 }
 
 refreshTreeBtn.onclick = loadTree;
+taskSelect.addEventListener('change', loadTree);
 loadTree();
 
 function tick() {

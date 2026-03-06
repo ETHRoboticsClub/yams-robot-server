@@ -14,7 +14,7 @@ import numpy as np
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 
 from utils.lifecycle import build_cleanup_and_sigint
-from utils.teleop_data import TRAJECTORIES_DIR, joint_only, load_task_names, save_run_history, save_trajectory
+from utils.teleop_data import TRAJECTORIES_DIR, cameras_only, joint_only, load_task_names, load_task_config, save_run_history
 from utils.teleop_setup import setup_arms_cameras_plotter
 from utils.time_each_line import format_timing, new_timing_stats, record_timing, time_each_line
 from plotting.live_joint_plot import LiveJointPlotter
@@ -49,19 +49,10 @@ def parse_args():
 
 
 def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJointPlotter, trajectory, collecting):
-    current_task = 'NA'
     deadline = time.monotonic()
 
     while not stop_event.is_set():
-        for msg in plotter.pop_control_messages():
-            if msg.get('type') == 'trajectory':
-                if msg.get('action') == 'start':
-                    current_task = msg.get('task', 'NA')
-                    collecting.set()
-                elif msg.get('action') == 'stop' and collecting.is_set():
-                    collecting.clear()
-                    save_trajectory(list(trajectory), current_task, logger)
-                    trajectory.clear()
+        plotter.process_trajectory_controls(trajectory, collecting)
 
         obs = bi_follower.get_observation(with_cameras=True)
         with obs_lock:
@@ -75,7 +66,7 @@ def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJoin
         bi_leader_action = None
         plotter.push(obs, bi_leader_action)
         if collecting.is_set():
-            trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
+            trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action), "cams": cameras_only(obs)})
 
 
 def run_loop(bi_follower, bi_leader, plotter, trajectory, collecting, report_hz=False):
@@ -121,9 +112,11 @@ def main():
     trajectory: list[dict[str, Any]] = []
     collecting = threading.Event()
     task_names = load_task_names()
+    task_config = load_task_config()
 
     plotter.trajectory_dir = TRAJECTORIES_DIR
     plotter.task_names = task_names
+    plotter.task_goals = {t['name']: t.get('goal') for t in task_config}
 
     cleanup, handle_sigint = build_cleanup_and_sigint(
         logger,

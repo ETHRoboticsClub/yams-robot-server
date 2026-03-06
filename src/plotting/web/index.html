@@ -14,32 +14,40 @@
         <p class="sub">Bimanual telemetry dashboard</p>
       </div>
       <div class="status-wrap">
+        <label for="history-s" class="history-label">Graph history (s)</label>
+        <input id="history-s" type="number" min="1" step="1" class="history-input" />
         <span id="stream-status" class="pill">connecting</span>
       </div>
     </header>
 
-    <section class="panel controls">
-      <div class="control-group">
-        <label for="history-s">History (s)</label>
-        <input id="history-s" type="number" min="1" step="1" />
-      </div>
-      <div class="control-group">
-        <label for="task-select">Task</label>
-        <select id="task-select"></select>
-      </div>
-      <div class="control-group">
-        <label>Trajectory</label>
-        <button id="record-btn" type="button">&#9679; Start Recording</button>
-      </div>
-      <div id="control-result" class="control-result"></div>
-    </section>
+    <div class="split-row">
+      <section class="panel controls">
+        <div class="control-group">
+          <label for="task-select">Task</label>
+          <select id="task-select"></select>
+        </div>
+        <div class="control-group">
+          <label>Trajectory</label>
+          <button id="record-btn" type="button">&#9679; Start Recording</button>
+        </div>
+        <div id="control-result" class="control-result"></div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Trajectories</h2>
+          <button id="refresh-tree" type="button" style="padding:4px 8px;font-size:12px">Refresh</button>
+        </div>
+        <div id="traj-tree" class="traj-tree"></div>
+      </section>
+    </div>
 
     <section class="panel">
       <div class="section-head">
-        <h2>Trajectories</h2>
-        <button id="refresh-tree" type="button" style="padding:4px 8px;font-size:12px">Refresh</button>
+        <h2>Cameras</h2>
+        <span id="camera-status" class="small-status">not connected</span>
       </div>
-      <div id="traj-tree" class="traj-tree"></div>
+      <div id="camera-grid" class="camera-grid"></div>
     </section>
 
     <section class="panel">
@@ -76,13 +84,6 @@
       </div>
     </section>
 
-    <section class="panel">
-      <div class="section-head">
-        <h2>Cameras</h2>
-        <span id="camera-status" class="small-status">not connected</span>
-      </div>
-      <div id="camera-grid" class="camera-grid"></div>
-    </section>
   </main>
 
   <script id="plot-config" type="application/json">__CONFIG_JSON__</script>
