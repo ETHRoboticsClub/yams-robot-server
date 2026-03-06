@@ -40,22 +40,34 @@ def parse_args():
 # @time_each_line
 def run_loop(bi_follower, bi_leader, plotter, trajectory):
     while True:
-        run_loop_iteration(bi_follower, bi_leader, plotter, trajectory)
+        # obs = bi_follower.get_observation(with_cameras=False)
+        bi_leader_action = bi_leader.get_action()
+        if bi_leader_action is None:
+            return
 
-def run_loop_iteration(bi_follower, bi_leader, plotter, trajectory):
-    obs = bi_follower.get_observation(with_cameras=False)
-    bi_leader_action = bi_leader.get_action()
-    if bi_leader_action is None:
-        return
+        # plotter.push(obs, bi_leader_action)
+        # for msg in plotter.pop_control_messages():
+        #     logger.info("UI control message: %s", msg)
+        # trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
 
-    plotter.push(obs, bi_leader_action)
-    for msg in plotter.pop_control_messages():
-        logger.info("UI control message: %s", msg)
-    trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
+        bi_follower.send_action(bi_leader_action)
 
-    bi_follower.send_action(bi_leader_action)
+        time.sleep(1 / HZ)
 
-    time.sleep(1 / HZ)
+# def run_loop_iteration(bi_follower, bi_leader, plotter, trajectory):
+#     obs = bi_follower.get_observation(with_cameras=False)
+#     bi_leader_action = bi_leader.get_action()
+#     if bi_leader_action is None:
+#         return
+
+#     plotter.push(obs, bi_leader_action)
+#     for msg in plotter.pop_control_messages():
+#         logger.info("UI control message: %s", msg)
+#     trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
+
+#     bi_follower.send_action(bi_leader_action)
+
+#     time.sleep(1 / HZ)
 
 
 def main():
