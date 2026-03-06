@@ -28,13 +28,13 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     run_pre_setup(left_follower_server_port, right_follower_server_port)
 
     cameras = {}
-    if args.allow_no_cams:
-        logger.info("Skipping camera setup (--allow-no-cams enabled)")
+    if args.skip_cams:
+        logger.info("Skipping camera setup (--skip-cams enabled)")
     else:
         available_zed_cameras = ZEDCamera.find_cameras()
         logger.info("Detected ZED cameras: %s", available_zed_cameras)
         if not available_zed_cameras:
-            raise Exception("Zed camera not found (use --allow-no-cams to continue without cameras)")
+            raise Exception("Zed camera not found (use --skip-cams to continue without cameras)")
         zed_cam_id = available_zed_cameras[0]["id"]
         logger.info("Using ZED camera id=%s", zed_cam_id)
         cameras = {

@@ -28,11 +28,11 @@ HZ = 200
 def parse_args():
     parser = argparse.ArgumentParser(description="Bimanual leader-follower teleoperation")
     parser.add_argument(
-        "--allow-no-cams",
-        "--allow_no_cams",
-        dest="allow_no_cams",
+        "--skip-cams",
+        "--skip_cams",
+        dest="skip_cams",
         action="store_true",
-        help="Run teleop without configuring cameras",
+        help="Skip camera configuration",
     )
     return parser.parse_args()
 
@@ -43,7 +43,7 @@ def run_loop(bi_follower, bi_leader, plotter, trajectory):
         run_loop_iteration(bi_follower, bi_leader, plotter, trajectory)
 
 def run_loop_iteration(bi_follower, bi_leader, plotter, trajectory):
-    obs = bi_follower.get_observation(with_cameras=True)
+    obs = bi_follower.get_observation(with_cameras=False)
     bi_leader_action = bi_leader.get_action()
     if bi_leader_action is None:
         return
@@ -53,7 +53,7 @@ def run_loop_iteration(bi_follower, bi_leader, plotter, trajectory):
         logger.info("UI control message: %s", msg)
     trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
 
-    # bi_follower.send_action(bi_leader_action)
+    bi_follower.send_action(bi_leader_action)
 
     time.sleep(1 / HZ)
 
