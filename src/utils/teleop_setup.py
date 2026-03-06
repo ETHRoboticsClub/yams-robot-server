@@ -6,6 +6,7 @@ from lerobot.cameras.opencv import OpenCVCameraConfig
 from lerobot_camera_zed.zed_camera import ZEDCamera, ZEDCameraConfig
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
+from lerobot.cameras.configs import Cv2Rotation
 
 from utils.lifecycle import run_pre_setup
 from utils.live_joint_plot import LiveJointPlotter
@@ -38,9 +39,9 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
         zed_cam_id = available_zed_cameras[0]["id"]
         logger.info("Using ZED camera id=%s", zed_cam_id)
         cameras = {
-            "left_wrist": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480, fourcc="MJPG"),
-            "right_wrist": OpenCVCameraConfig(index_or_path=2, fps=30, width=640, height=480, fourcc="MJPG"),
-            "topdown": ZEDCameraConfig(camera_id=zed_cam_id, width=640, height=480, fps=30),
+            "left_wrist": OpenCVCameraConfig(index_or_path=4, fps=30, width=640, height=480, fourcc="MJPG"),
+            "right_wrist": OpenCVCameraConfig(index_or_path=0, fps=30, width=640, height=480, fourcc="MJPG"),
+            "topdown": ZEDCameraConfig(camera_id=zed_cam_id, width=640, height=480, fps=30, rotation=Cv2Rotation.NO_ROTATION),
         }
 
     bi_follower = BiYamsFollower(

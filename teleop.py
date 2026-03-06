@@ -17,6 +17,7 @@ from utils.lifecycle import build_cleanup_and_sigint
 from utils.teleop_data import joint_only, save_run_history
 from utils.teleop_setup import setup_arms_cameras_plotter
 from utils.time_each_line import format_timing, new_timing_stats, record_timing, time_each_line
+from plotting.live_joint_plot import LiveJointPlotter
 
 logging.basicConfig(
     level=logging.INFO,
@@ -47,11 +48,11 @@ def parse_args():
     return parser.parse_args()
 
 
-def camera_loop(bi_follower, latest_obs, obs_lock, stop_event):
+def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJointPlotter, trajectory):
     deadline = time.monotonic()
 
     while not stop_event.is_set():
-        obs = bi_follower.get_observation(with_cameras=False)
+        obs = bi_follower.get_observation(with_cameras=True)
         with obs_lock:
             latest_obs.update(obs)
         
@@ -59,13 +60,17 @@ def camera_loop(bi_follower, latest_obs, obs_lock, stop_event):
         remaining = deadline - time.monotonic()
         if remaining > 0:
             time.sleep(remaining)
+        
+        bi_leader_action = None
+        plotter.push(obs, bi_leader_action)
+        trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
 
 
 def run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=False):
     stop_event = threading.Event()
     latest_obs: dict[str, Any] = {}
     obs_lock = threading.Lock()
-    cam_thread = threading.Thread(target=camera_loop, args=(bi_follower, latest_obs, obs_lock, stop_event), daemon=True)
+    cam_thread = threading.Thread(target=camera_loop, args=(bi_follower, latest_obs, obs_lock, stop_event, plotter, trajectory), daemon=True)
     cam_thread.start()
 
     deadline = time.monotonic()
@@ -77,10 +82,9 @@ def run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=False):
             if bi_leader_action is None:
                 return
 
-            # with obs_lock:
-            #     obs = dict(latest_obs)
-            # plotter.push(obs, bi_leader_action)
-            # trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
+            with obs_lock:
+                obs = dict(latest_obs)
+            
 
             bi_follower.send_action(bi_leader_action)
 
