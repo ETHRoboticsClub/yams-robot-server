@@ -55,6 +55,7 @@ class BiYamsLeader(Teleoperator):
 
         self.left_arm = YamsLeader(left_arm_config)
         self.right_arm = YamsLeader(right_arm_config)
+        self._pool = ThreadPoolExecutor(max_workers=2)
 
     @property
     def action_features(self) -> dict[str, type]:
@@ -90,21 +91,16 @@ class BiYamsLeader(Teleoperator):
         self.right_arm.setup_motors()
 
     def get_action(self) -> dict[str, float]:
-        action_dict = {}
-
-        left_action = self.left_arm.get_action()
-        if left_action is None:
+        left_f = self._pool.submit(self.left_arm.get_action)
+        right_f = self._pool.submit(self.right_arm.get_action)
+        left_action = left_f.result()
+        right_action = right_f.result()
+        if left_action is None or right_action is None:
             return None
-        action_dict.update({f"left_{key}": value for key, value in left_action.items()})
-
-        right_action = self.right_arm.get_action()
-        if right_action is None:
-            return None
-        action_dict.update(
-            {f"right_{key}": value for key, value in right_action.items()}
-        )
-
-        return action_dict
+        return {
+            **{f"left_{k}": v for k, v in left_action.items()},
+            **{f"right_{k}": v for k, v in right_action.items()},
+        }
 
     def send_feedback(self, feedback: dict[str, float]) -> None:
         # TODO(rcadene, aliberts): Implement force feedback
@@ -114,3 +110,4 @@ class BiYamsLeader(Teleoperator):
         with ThreadPoolExecutor(max_workers=2) as ex:
             ex.submit(self.left_arm.disconnect)
             ex.submit(self.right_arm.disconnect)
+        self._pool.shutdown(wait=True)
