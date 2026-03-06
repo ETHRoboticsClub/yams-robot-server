@@ -49,17 +49,18 @@ def parse_args():
 
 def camera_loop(bi_follower, latest_obs, obs_lock, stop_event):
     deadline = time.monotonic()
+
     while not stop_event.is_set():
         obs = bi_follower.get_observation(with_cameras=False)
         with obs_lock:
             latest_obs.update(obs)
+        
         deadline += 1 / CAM_HZ
         remaining = deadline - time.monotonic()
         if remaining > 0:
             time.sleep(remaining)
 
 
-# @time_each_line
 def run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=False):
     stop_event = threading.Event()
     latest_obs: dict[str, Any] = {}

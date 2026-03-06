@@ -107,8 +107,8 @@ class YamsFollower(Robot):
         start = time.perf_counter()
 
         obs_dict = {}
+        joint_pos = self._client.get_joint_pos().result()  # type: ignore
         for i, key in enumerate(self.config.joint_names):
-            joint_pos = self._client.get_joint_pos().result()  # type: ignore
             obs_dict[f"{key}.pos"] = joint_pos[i]
 
         dt_ms = (time.perf_counter() - start) * 1e3
