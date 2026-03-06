@@ -28,6 +28,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 ARMS_CONFIG_PATH = PROJECT_ROOT / "configs" / "arms.yaml"
 RUN_HISTORY_DIR = PROJECT_ROOT / "run_history"
 HZ = 200
+CAM_HZ = 30
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Bimanual leader-follower teleoperation")
@@ -46,33 +47,52 @@ def parse_args():
     return parser.parse_args()
 
 
+def camera_loop(bi_follower, latest_obs, obs_lock, stop_event):
+    deadline = time.monotonic()
+    while not stop_event.is_set():
+        obs = bi_follower.get_observation(with_cameras=False)
+        with obs_lock:
+            latest_obs.update(obs)
+        deadline += 1 / CAM_HZ
+        remaining = deadline - time.monotonic()
+        if remaining > 0:
+            time.sleep(remaining)
+
+
 # @time_each_line
 def run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=False):
+    stop_event = threading.Event()
+    latest_obs: dict[str, Any] = {}
+    obs_lock = threading.Lock()
+    cam_thread = threading.Thread(target=camera_loop, args=(bi_follower, latest_obs, obs_lock, stop_event), daemon=True)
+    cam_thread.start()
+
     deadline = time.monotonic()
     t0 = time.monotonic()
     iters = 0
     try:
         while True:
-            # obs = bi_follower.get_observation(with_cameras=False)
             bi_leader_action = bi_leader.get_action()
             if bi_leader_action is None:
                 return
 
+            # with obs_lock:
+            #     obs = dict(latest_obs)
             # plotter.push(obs, bi_leader_action)
-            # for msg in plotter.pop_control_messages():
-            #     logger.info("UI control message: %s", msg)
             # trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
 
             bi_follower.send_action(bi_leader_action)
 
-            # iters += 1
+            iters += 1
             deadline += 1 / HZ
             remaining = deadline - time.monotonic()
             if remaining > 0:
                 time.sleep(remaining)
     finally:
+        elapsed = time.monotonic() - t0
+        stop_event.set()
+        cam_thread.join()
         if report_hz and iters > 0:
-            elapsed = time.monotonic() - t0
             logger.info("Teleop loop: %.1f Hz over %.1f s (%d iters)", iters / elapsed, elapsed, iters)
 
 
@@ -133,7 +153,7 @@ def main():
                 stats.dump_stats(prof_path)
                 logger.info("Profile saved to %s", prof_path)
         else:
-            run_loop(bi_follower, bi_leader, plotter, trajectory)
+            run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=True)
 
         return
     finally:
