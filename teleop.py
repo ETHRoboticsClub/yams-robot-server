@@ -1,7 +1,11 @@
 import argparse
+import cProfile
+import io
 import logging
 import os
+import pstats
 import signal
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -33,6 +37,11 @@ def parse_args():
         dest="skip_cams",
         action="store_true",
         help="Skip camera configuration",
+    )
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Profile the teleop loop with cProfile (including threads)",
     )
     return parser.parse_args()
 
@@ -92,7 +101,38 @@ def main():
         signal.signal(signal.SIGINT, handle_sigint)
         plotter.start()
 
-        run_loop(bi_follower, bi_leader, plotter, trajectory)
+        if args.profile:
+            _thread_profiles: list[cProfile.Profile] = []
+            _lock = threading.Lock()
+            _orig_submit = bi_leader._pool.submit
+
+            def _profiled_submit(fn, *a, **kw):
+                def _wrapped():
+                    p = cProfile.Profile()
+                    p.enable()
+                    try:
+                        return fn(*a, **kw)
+                    finally:
+                        p.disable()
+                        with _lock:
+                            _thread_profiles.append(p)
+                return _orig_submit(_wrapped)
+
+            bi_leader._pool.submit = _profiled_submit
+
+            main_prof = cProfile.Profile()
+            main_prof.enable()
+            run_loop(bi_follower, bi_leader, plotter, trajectory)
+            main_prof.disable()
+
+            stats = pstats.Stats(main_prof, stream=(s := io.StringIO()))
+            for p in _thread_profiles:
+                stats.add(p)
+            stats.sort_stats("cumulative")
+            stats.print_stats()
+            print(s.getvalue())
+        else:
+            run_loop(bi_follower, bi_leader, plotter, trajectory)
 
         return
     finally:
