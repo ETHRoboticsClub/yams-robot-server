@@ -6,10 +6,12 @@ from typing import Any
 
 def build_joint_label_map(section_config: dict) -> dict[str, str]:
     out: dict[str, str] = {}
-    joint_labels = section_config.get("joint_labels", {})
     for side in ("left", "right"):
-        for joint, label in joint_labels.get(side, {}).items():
-            out[f"{side}_{joint}.pos"] = label
+        arm_config = section_config.get(f"{side}_arm", {})
+        for joint, cfg in arm_config.get("motors", {}).items():
+            label = cfg.get("label") if isinstance(cfg, dict) else None
+            if label:
+                out[f"{side}_{joint}.pos"] = label
     return out
 
 

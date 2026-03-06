@@ -53,7 +53,7 @@ def run_loop_iteration(bi_follower, bi_leader, plotter, trajectory):
         logger.info("UI control message: %s", msg)
     trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
 
-    bi_follower.send_action(bi_leader_action)
+    # bi_follower.send_action(bi_leader_action)
 
     time.sleep(1 / HZ)
 

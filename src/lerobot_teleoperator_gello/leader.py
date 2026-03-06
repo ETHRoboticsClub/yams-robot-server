@@ -11,6 +11,21 @@ from lerobot.teleoperators.teleoperator import Teleoperator, TeleoperatorConfig
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 
 logger = logging.getLogger(__name__)
+ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml"
+
+
+def _load_motors(side: str) -> dict[str, Motor]:
+    with open(ARMS_CONFIG_PATH, "r") as f:
+        leader_config = yaml.safe_load(f)["leader"]
+    motor_configs = leader_config[f"{side}_arm"]["motors"]
+    return {
+        name: Motor(
+            cfg["id"],
+            cfg["model"],
+            MotorNormMode[cfg.get("norm_mode", "DEGREES")],
+        )
+        for name, cfg in motor_configs.items()
+    }
 
 
 @TeleoperatorConfig.register_subclass("yams_leader")
@@ -30,17 +45,11 @@ class YamsLeader(Teleoperator):
     def __init__(self, config: YamsLeaderConfig):
         super().__init__(config)
         self.config = config
+        motors = _load_motors(self.config.side)
+
         self.bus = DynamixelMotorsBus(
             port=self.config.port,
-            motors={
-                "joint_1": Motor(1, "xl330-m077", MotorNormMode.DEGREES),
-                "joint_2": Motor(2, "xl330-m077", MotorNormMode.DEGREES),
-                "joint_3": Motor(3, "xl330-m077", MotorNormMode.DEGREES),
-                "joint_4": Motor(4, "xl330-m077", MotorNormMode.DEGREES),
-                "joint_5": Motor(5, "xl330-m077", MotorNormMode.DEGREES),
-                "joint_6": Motor(6, "xl330-m077", MotorNormMode.DEGREES),
-                "gripper": Motor(7, "xl330-m077", MotorNormMode.DEGREES),
-            },
+            motors=motors,
         )
         calibration_path = (
             Path(self.config.calibration_path)
