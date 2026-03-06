@@ -14,7 +14,7 @@ import numpy as np
 from lerobot_robot_yams.utils.utils import slow_move, split_arm_action
 
 from utils.lifecycle import build_cleanup_and_sigint
-from utils.teleop_data import joint_only, save_run_history
+from utils.teleop_data import TRAJECTORIES_DIR, joint_only, load_task_names, save_run_history, save_trajectory
 from utils.teleop_setup import setup_arms_cameras_plotter
 from utils.time_each_line import format_timing, new_timing_stats, record_timing, time_each_line
 from plotting.live_joint_plot import LiveJointPlotter
@@ -48,10 +48,21 @@ def parse_args():
     return parser.parse_args()
 
 
-def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJointPlotter, trajectory):
+def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJointPlotter, trajectory, collecting):
+    current_task = 'NA'
     deadline = time.monotonic()
 
     while not stop_event.is_set():
+        for msg in plotter.pop_control_messages():
+            if msg.get('type') == 'trajectory':
+                if msg.get('action') == 'start':
+                    current_task = msg.get('task', 'NA')
+                    collecting.set()
+                elif msg.get('action') == 'stop' and collecting.is_set():
+                    collecting.clear()
+                    save_trajectory(list(trajectory), current_task, logger)
+                    trajectory.clear()
+
         obs = bi_follower.get_observation(with_cameras=True)
         with obs_lock:
             latest_obs.update(obs)
@@ -63,14 +74,15 @@ def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJoin
         
         bi_leader_action = None
         plotter.push(obs, bi_leader_action)
-        trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
+        if collecting.is_set():
+            trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
 
 
-def run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=False):
+def run_loop(bi_follower, bi_leader, plotter, trajectory, collecting, report_hz=False):
     stop_event = threading.Event()
     latest_obs: dict[str, Any] = {}
     obs_lock = threading.Lock()
-    cam_thread = threading.Thread(target=camera_loop, args=(bi_follower, latest_obs, obs_lock, stop_event, plotter, trajectory), daemon=True)
+    cam_thread = threading.Thread(target=camera_loop, args=(bi_follower, latest_obs, obs_lock, stop_event, plotter, trajectory, collecting), daemon=True)
     cam_thread.start()
 
     deadline = time.monotonic()
@@ -107,6 +119,11 @@ def main():
 
     run_started_at = time.time()
     trajectory: list[dict[str, Any]] = []
+    collecting = threading.Event()
+    task_names = load_task_names()
+
+    plotter.trajectory_dir = TRAJECTORIES_DIR
+    plotter.task_names = task_names
 
     cleanup, handle_sigint = build_cleanup_and_sigint(
         logger,
@@ -145,7 +162,7 @@ def main():
             main_prof = cProfile.Profile()
             main_prof.enable()
             try:
-                run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=True)
+                run_loop(bi_follower, bi_leader, plotter, trajectory, collecting, report_hz=True)
             finally:
                 main_prof.disable()
                 stats = pstats.Stats(main_prof, stream=(s := io.StringIO()))
@@ -158,7 +175,7 @@ def main():
                 stats.dump_stats(prof_path)
                 logger.info("Profile saved to %s", prof_path)
         else:
-            run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=True)
+            run_loop(bi_follower, bi_leader, plotter, trajectory, collecting, report_hz=True)
 
         return
     finally:

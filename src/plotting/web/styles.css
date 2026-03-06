@@ -55,7 +55,7 @@ h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: u
 .pill.bad { color: var(--warn); border-color: #fdba74; background: #fff7ed; }
 .controls {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto auto auto;
   gap: 10px 16px;
   align-items: end;
 }
@@ -67,7 +67,8 @@ h3 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: u
 .control-group label,
 .control-form label { font-size: 12px; color: var(--sub); text-transform: uppercase; letter-spacing: 0.05em; }
 input[type="number"],
-input[type="text"] {
+input[type="text"],
+select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -88,6 +89,8 @@ button {
   cursor: pointer;
 }
 button:hover { background: #bae6fd; }
+button.recording { border-color: #dc2626; color: #991b1b; background: #fee2e2; }
+button.recording:hover { background: #fecaca; }
 .control-result { grid-column: 1 / -1; font-size: 12px; color: var(--sub); min-height: 18px; }
 .section-head {
   display: flex;
@@ -133,6 +136,11 @@ canvas {
   display: block;
   background: #0f172a;
 }
+.traj-tree { font-size: 13px; }
+.traj-tree details { margin-bottom: 4px; }
+.traj-tree summary { cursor: pointer; font-weight: 600; padding: 2px 0; }
+.traj-tree ul { margin: 4px 0 4px 18px; padding: 0; list-style: none; }
+.traj-tree li { padding: 1px 0; color: var(--sub); }
 @media (max-width: 1024px) {
   .arm-grid { grid-template-columns: 1fr; }
 }

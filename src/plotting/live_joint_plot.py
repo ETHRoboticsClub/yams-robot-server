@@ -78,6 +78,9 @@ class LiveJointPlotter:
 
         self._last_camera_t = 0.0
 
+        self.trajectory_dir: Path | None = None
+        self.task_names: list[str] = []
+
     def _render_index(self) -> bytes:
         config = {
             'keys': self.joint_keys,
@@ -89,6 +92,7 @@ class LiveJointPlotter:
             'hz': self.hz,
             'historyS': self.history_s,
             'maxBufferPoints': max(max(8, int(self.hz * self.history_s)), int(self.hz * 300.0)),
+            'tasks': self.task_names,
         }
         html = _INDEX_TEMPLATE.replace('__TITLE__', self.title).replace(
             '__CONFIG_JSON__', json.dumps(config, separators=(',', ':'))
@@ -129,11 +133,31 @@ class LiveJointPlotter:
                     return
 
                 if self.path == '/static/app.js':
+                    body = (_WEB_DIR / 'app.js').read_bytes()
                     self.send_response(HTTPStatus.OK)
                     self.send_header('Content-Type', 'application/javascript; charset=utf-8')
-                    self.send_header('Content-Length', str(len(_APP_JS)))
+                    self.send_header('Content-Length', str(len(body)))
                     self.end_headers()
-                    self.wfile.write(_APP_JS)
+                    self.wfile.write(body)
+                    return
+
+                if self.path == '/trajectories':
+                    tree: dict[str, list[str]] = {}
+                    tdir = plotter.trajectory_dir
+                    if tdir and tdir.is_dir():
+                        for task_dir in sorted(tdir.iterdir()):
+                            if task_dir.is_dir():
+                                eps = sorted(
+                                    (p.name for p in task_dir.iterdir() if p.is_dir()),
+                                    key=lambda n: int(n) if n.isdigit() else n,
+                                )
+                                tree[task_dir.name] = eps
+                    body = json.dumps(tree, separators=(',', ':')).encode()
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
                     return
 
                 if self.path == '/events':

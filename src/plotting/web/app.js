@@ -8,9 +8,11 @@ const rightKeys = keys.filter((k) => k.startsWith('right_'));
 
 const streamStatusEl = document.getElementById('stream-status');
 const historyInput = document.getElementById('history-s');
-const controlForm = document.getElementById('control-form');
-const controlText = document.getElementById('control-text');
+const taskSelect = document.getElementById('task-select');
+const recordBtn = document.getElementById('record-btn');
 const controlResult = document.getElementById('control-result');
+const refreshTreeBtn = document.getElementById('refresh-tree');
+const trajTreeEl = document.getElementById('traj-tree');
 const followerStatusEl = document.getElementById('follower-status');
 const leaderStatusEl = document.getElementById('leader-status');
 const cameraStatusEl = document.getElementById('camera-status');
@@ -19,6 +21,13 @@ const cameraGridEl = document.getElementById('camera-grid');
 let historyS = cfg.historyS;
 let maxPoints = Math.max(8, Math.round(hz * historyS));
 historyInput.value = historyS.toFixed(0);
+
+for (const task of cfg.tasks || []) {
+  const opt = document.createElement('option');
+  opt.value = task;
+  opt.textContent = task;
+  taskSelect.appendChild(opt);
+}
 
 function setStreamStatus(text, ok) {
   streamStatusEl.textContent = text;
@@ -211,16 +220,6 @@ class Dashboard {
   }
 }
 
-async function sendControl(text) {
-  const payload = { type: 'note', text };
-  const res = await fetch('/control', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-}
-
 const dashboard = new Dashboard();
 const es = new EventSource('/events');
 es.onopen = () => setStreamStatus('connected', true);
@@ -238,18 +237,58 @@ historyInput.onchange = () => {
   dashboard.trimAll();
 };
 
-controlForm.onsubmit = async (evt) => {
-  evt.preventDefault();
-  const text = controlText.value.trim();
-  if (!text) return;
+let recording = false;
+
+recordBtn.onclick = async () => {
+  recording = !recording;
+  recordBtn.classList.toggle('recording', recording);
+  recordBtn.textContent = recording ? '\u25A0 Stop Recording' : '\u25CF Start Recording';
   try {
-    await sendControl(text);
-    controlResult.textContent = `sent: ${text}`;
-    controlText.value = '';
+    await fetch('/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'trajectory', action: recording ? 'start' : 'stop', task: taskSelect.value }),
+    });
+    if (recording) {
+      controlResult.textContent = `Recording (${taskSelect.value})…`;
+    } else {
+      controlResult.textContent = 'Saved.';
+      loadTree();
+    }
   } catch (err) {
-    controlResult.textContent = `failed to send: ${err}`;
+    controlResult.textContent = `failed: ${err}`;
   }
 };
+
+async function loadTree() {
+  try {
+    const res = await fetch('/trajectories');
+    const tree = await res.json();
+    trajTreeEl.innerHTML = '';
+    const tasks = Object.keys(tree).sort();
+    if (!tasks.length) { trajTreeEl.textContent = 'No trajectories yet.'; return; }
+    for (const task of tasks) {
+      const details = document.createElement('details');
+      details.open = true;
+      const summary = document.createElement('summary');
+      summary.textContent = `${task} (${tree[task].length})`;
+      details.appendChild(summary);
+      const ul = document.createElement('ul');
+      for (const ep of tree[task]) {
+        const li = document.createElement('li');
+        li.textContent = `episode ${ep}`;
+        ul.appendChild(li);
+      }
+      details.appendChild(ul);
+      trajTreeEl.appendChild(details);
+    }
+  } catch (err) {
+    trajTreeEl.textContent = `Error: ${err}`;
+  }
+}
+
+refreshTreeBtn.onclick = loadTree;
+loadTree();
 
 function tick() {
   dashboard.render();
