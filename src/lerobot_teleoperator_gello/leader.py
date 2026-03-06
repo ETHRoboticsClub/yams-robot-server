@@ -14,6 +14,21 @@ logger = logging.getLogger(__name__)
 ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml"
 
 
+def _ensure_xm430_w210_support() -> None:
+    model = "xm430-w210"
+    base = "xm430-w350"
+    if model in DynamixelMotorsBus.model_ctrl_table:
+        return
+    DynamixelMotorsBus.model_ctrl_table[model] = DynamixelMotorsBus.model_ctrl_table[base]
+    DynamixelMotorsBus.model_baudrate_table[model] = DynamixelMotorsBus.model_baudrate_table[base]
+    DynamixelMotorsBus.model_encoding_table[model] = DynamixelMotorsBus.model_encoding_table[base]
+    DynamixelMotorsBus.model_resolution_table[model] = DynamixelMotorsBus.model_resolution_table[base]
+    DynamixelMotorsBus.model_number_table[model] = 1030
+
+
+_ensure_xm430_w210_support()
+
+
 def _load_motors(side: str) -> dict[str, Motor]:
     with open(ARMS_CONFIG_PATH, "r") as f:
         leader_config = yaml.safe_load(f)["leader"]
