@@ -47,6 +47,11 @@ cd yams-robot-server
   ```bash
   ls /dev/ttyACM*
   ```
+  Increase hz by changing the latency timer to 1ms (some boards default to 16ms capping us at 50hz):
+  ```
+  echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
+  echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
+  ```
   > **Note:**  
   > Ensure the mapping for left and right arm ports is correct in your example script or when supplying arguments to `lerobot`.
 

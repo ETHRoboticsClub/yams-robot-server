@@ -47,36 +47,33 @@ def parse_args():
 
 
 # @time_each_line
-def run_loop(bi_follower, bi_leader, plotter, trajectory):
-    while True:
-        # obs = bi_follower.get_observation(with_cameras=False)
-        bi_leader_action = bi_leader.get_action()
-        if bi_leader_action is None:
-            return
+def run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=False):
+    deadline = time.monotonic()
+    t0 = time.monotonic()
+    iters = 0
+    try:
+        while True:
+            # obs = bi_follower.get_observation(with_cameras=False)
+            bi_leader_action = bi_leader.get_action()
+            if bi_leader_action is None:
+                return
 
-        # plotter.push(obs, bi_leader_action)
-        # for msg in plotter.pop_control_messages():
-        #     logger.info("UI control message: %s", msg)
-        # trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
+            # plotter.push(obs, bi_leader_action)
+            # for msg in plotter.pop_control_messages():
+            #     logger.info("UI control message: %s", msg)
+            # trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
 
-        bi_follower.send_action(bi_leader_action)
+            bi_follower.send_action(bi_leader_action)
 
-        time.sleep(1 / HZ)
-
-# def run_loop_iteration(bi_follower, bi_leader, plotter, trajectory):
-#     obs = bi_follower.get_observation(with_cameras=False)
-#     bi_leader_action = bi_leader.get_action()
-#     if bi_leader_action is None:
-#         return
-
-#     plotter.push(obs, bi_leader_action)
-#     for msg in plotter.pop_control_messages():
-#         logger.info("UI control message: %s", msg)
-#     trajectory.append({"t": time.time(), "obs": joint_only(obs), "act": joint_only(bi_leader_action)})
-
-#     bi_follower.send_action(bi_leader_action)
-
-#     time.sleep(1 / HZ)
+            # iters += 1
+            deadline += 1 / HZ
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                time.sleep(remaining)
+    finally:
+        if report_hz and iters > 0:
+            elapsed = time.monotonic() - t0
+            logger.info("Teleop loop: %.1f Hz over %.1f s (%d iters)", iters / elapsed, elapsed, iters)
 
 
 def main():
@@ -122,15 +119,19 @@ def main():
 
             main_prof = cProfile.Profile()
             main_prof.enable()
-            run_loop(bi_follower, bi_leader, plotter, trajectory)
-            main_prof.disable()
-
-            stats = pstats.Stats(main_prof, stream=(s := io.StringIO()))
-            for p in _thread_profiles:
-                stats.add(p)
-            stats.sort_stats("cumulative")
-            stats.print_stats()
-            print(s.getvalue())
+            try:
+                run_loop(bi_follower, bi_leader, plotter, trajectory, report_hz=True)
+            finally:
+                main_prof.disable()
+                stats = pstats.Stats(main_prof, stream=(s := io.StringIO()))
+                for p in _thread_profiles:
+                    stats.add(p)
+                stats.sort_stats("cumulative")
+                stats.print_stats()
+                print(s.getvalue())
+                prof_path = PROJECT_ROOT / "teleop.prof"
+                stats.dump_stats(prof_path)
+                logger.info("Profile saved to %s", prof_path)
         else:
             run_loop(bi_follower, bi_leader, plotter, trajectory)
 
