@@ -36,7 +36,7 @@ follower:
 
 leader:
   left_arm:
-    port: /dev/ttyUSB0
+    port: /dev/ttyUSB1
     motors:
       joint_1:
         id: 1
@@ -80,7 +80,7 @@ leader:
         norm_mode: DEGREES
         label: Gripper
   right_arm:
-    port: /dev/ttyUSB1
+    port: /dev/ttyUSB0
     motors:
       joint_1:
         id: 8
