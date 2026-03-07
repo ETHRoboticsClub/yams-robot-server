@@ -1,10 +1,10 @@
-from .cached_config import OpenCVCameraConfigCached
+from .cached_config import OpenCVCameraCachedConfig
 from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
 from numpy.typing import NDArray  # type: ignore  # TODO: add type stubs for numpy.typing
 from typing import Any
 
 class OpenCVCameraCached(OpenCVCamera):
-    def __init__(self, config: OpenCVCameraConfigCached):
+    def __init__(self, config: OpenCVCameraCachedConfig):
         super().__init__(config)
         self.config = config
 
