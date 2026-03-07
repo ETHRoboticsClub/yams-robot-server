@@ -26,7 +26,7 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     right_follower_server_port = follower_config["right_arm"]["server_port"]
     left_leader_port = leader_config["left_arm"]["port"]
     right_leader_port = leader_config["right_arm"]["port"]
-    run_pre_setup(left_follower_server_port, right_follower_server_port)
+    run_pre_setup(left_follower_server_port, right_follower_server_port, usb_ports=[left_leader_port, right_leader_port])
 
     cameras = {}
     if args.skip_cams:
