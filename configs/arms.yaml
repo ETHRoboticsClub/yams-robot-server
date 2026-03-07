@@ -135,20 +135,20 @@ cameras:
     right_wrist: Right Wrist
     topdown: Topdown
   configs:
-    # left_wrist:
-    #   type: opencv
-    #   index_or_path: 0
-    #   fps: 60
-    #   width: 640
-    #   height: 480
-    #   fourcc: MJPG
-    # right_wrist:
-    #   type: opencv
-    #   index_or_path: 2
-    #   fps: 60
-    #   width: 640
-    #   height: 480
-    #   fourcc: MJPG
+    left_wrist:
+      type: opencv-cached
+      index_or_path: 0
+      fps: 60
+      width: 640
+      height: 480
+      fourcc: MJPG
+    right_wrist:
+      type: opencv-cached
+      index_or_path: 2
+      fps: 60
+      width: 640
+      height: 480
+      fourcc: MJPG
     topdown:
       type: zed
       fps: 60
