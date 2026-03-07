@@ -43,6 +43,8 @@ class ZEDCamera(Camera):
                 cv2.ROTATE_90_COUNTERCLOCKWISE,
             ]:
                 self.capture_width, self.capture_height = self.height, self.width
+        if config.cached_frames:
+            logger.info('Running Zed cam in cashed mode')
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}({self.camera_id})"
@@ -242,6 +244,11 @@ class ZEDCamera(Camera):
 
         if self.thread is None or not self.thread.is_alive():
             self._start_read_thread()
+
+        if self.config.cached_frames:
+            with self.frame_lock:
+                frame = self.latest_frame
+                return frame
 
         if not self.new_frame_event.wait(timeout=timeout_ms / 1000.0):
             thread_alive = self.thread is not None and self.thread.is_alive()

@@ -26,7 +26,8 @@ pyzed = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyz
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lerobot_robot_yams", "src/lerobot_teleoperator_gello", "src/lerobot_camera_zed"]
+packages = ["src/lerobot_robot_yams", "src/lerobot_teleoperator_gello", "src/lerobot_camera_zed",
+            "src/lerobot_camera_cached"]
 
 [tool.black]
 line-length = 100
