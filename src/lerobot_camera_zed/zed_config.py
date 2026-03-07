@@ -9,6 +9,7 @@ class ZEDCameraConfig(CameraConfig):
     color_mode: ColorMode = ColorMode.RGB
     rotation: Cv2Rotation = Cv2Rotation.ROTATE_180
     depth_mode: str = "PERFORMANCE"
+    cashed_frames: bool = True
 
     def __post_init__(self) -> None:
         if self.color_mode not in (ColorMode.RGB, ColorMode.BGR):

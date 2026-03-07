@@ -237,11 +237,9 @@ class ZEDCamera(Camera):
         self.stop_event = None
 
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:
-        if not self.is_connected:
-            raise DeviceNotConnectedError(f"{self} is not connected.")
-
-        if self.thread is None or not self.thread.is_alive():
-            self._start_read_thread()
+        if self.config.cashed_frames:
+            with self.frame_lock:
+                frame = self.latest_frame
 
         if not self.new_frame_event.wait(timeout=timeout_ms / 1000.0):
             thread_alive = self.thread is not None and self.thread.is_alive()
