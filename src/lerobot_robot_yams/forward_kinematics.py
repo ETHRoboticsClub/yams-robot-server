@@ -84,7 +84,7 @@ def check_action(
     joint_angles: np.ndarray,
     last_joint_angles: np.ndarray | None,
     ground_z: float,
-    link6_length: float,
+    end_effector_length: float,
     max_joint_step: np.ndarray,
 ) -> bool:
     """Return True (rejected) if:
@@ -104,7 +104,7 @@ def check_action(
         return True
 
     local_z_world = T_tip[:3, 2]
-    for t in np.linspace(0, link6_length, 10):
+    for t in np.linspace(0, end_effector_length, 10):
         if (positions[-1] + t * local_z_world)[2] < ground_z:
             return True
 

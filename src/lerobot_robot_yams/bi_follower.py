@@ -29,7 +29,7 @@ class BiYamsFollowerConfig(RobotConfig):
     right_arm_can_port: str = "can_follower_r"
     right_arm_server_port: int = 11334
     ground_z: float = field(default_factory=lambda: _COLLISION["ground_z"])
-    link6_length: float = field(default_factory=lambda: _COLLISION["link6_length"])
+    end_effector_length: float = field(default_factory=lambda: _COLLISION["end_effector_length"])
     max_joint_step: np.ndarray = field(default_factory=lambda: np.array(_COLLISION["max_joint_step"]))
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
@@ -143,7 +143,7 @@ class BiYamsFollower(Robot):
         joint_names_6 = self.left_arm.config.joint_names[:6]
         for side, arm_action in [("left", left_action), ("right", right_action)]:
             angles = np.array([arm_action[f"{j}.pos"] for j in joint_names_6])
-            if check_action(angles, self._last_angles[side], self.config.ground_z, self.config.link6_length, self.config.max_joint_step):
+            if check_action(angles, self._last_angles[side], self.config.ground_z, self.config.end_effector_length, self.config.max_joint_step):
                 logger.warning(f"{side} arm action rejected")
                 return self.get_observation(with_cameras=False)
             self._last_angles[side] = angles
