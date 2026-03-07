@@ -53,6 +53,9 @@ def _make_tf(rot: np.ndarray, pos: np.ndarray) -> np.ndarray:
     return T
 
 
+_LINK6_LENGTH = 0.15  # metres, approximate tip-to-joint6-origin distance
+
+
 def arm_fk(joint_angles: np.ndarray) -> list[np.ndarray]:
     """Return world-frame positions of each link origin (after each joint).
 
@@ -63,6 +66,8 @@ def arm_fk(joint_angles: np.ndarray) -> list[np.ndarray]:
     Returns
     -------
     List of 7 xyz positions: base, then after each of the 6 joints.
+    The last transform T is also returned as the 8th element (4x4 matrix) so
+    callers can compute points along the last link.
     """
     T = np.eye(4)
     positions = [T[:3, 3].copy()]
@@ -75,17 +80,33 @@ def arm_fk(joint_angles: np.ndarray) -> list[np.ndarray]:
         T = T @ T_joint @ T_q
         positions.append(T[:3, 3].copy())
 
-    return positions
+    return positions, T
 
 
 def check_ground_collision(
     joint_angles: np.ndarray,
-    ground_z: float = 0.0,
-    margin: float = 0.01,
+    ground_z: float = 0.05,
+    margin: float = 0.00,
 ) -> bool:
     """Return True if any link origin (excluding base) is below ground_z + margin.
+
+    For the last link the full volume is checked by sampling N points along its
+    local z-axis from joint6 origin to the tip (_LINK6_LENGTH away).
 
     The base_link origin sits at z=0 on the table surface.
     Both arms share the same chain (arm2 offset is purely in y).
     """
-    return any(pos[2] < ground_z + margin for pos in arm_fk(joint_angles)[1:])
+    positions, T_tip = arm_fk(joint_angles)
+    threshold = ground_z + margin
+
+    if any(pos[2] < threshold for pos in positions[1:]):
+        return True
+
+    # Sample along last link's local z-axis (world direction = T_tip[:3, 2])
+    local_z_world = T_tip[:3, 2]
+    tip_origin = positions[-1]
+    for t in np.linspace(0, _LINK6_LENGTH, 10):
+        if (tip_origin + t * local_z_world)[2] < threshold:
+            return True
+
+    return False

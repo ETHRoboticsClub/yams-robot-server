@@ -23,7 +23,7 @@ class BiYamsFollowerConfig(RobotConfig):
     left_arm_server_port: int = 11333
     right_arm_can_port: str = "can_follower_r"
     right_arm_server_port: int = 11334
-    ground_z: float = 0.0
+    ground_z: float = 0.05
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
