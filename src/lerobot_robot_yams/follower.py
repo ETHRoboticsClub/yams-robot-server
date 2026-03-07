@@ -48,6 +48,13 @@ class YamsFollower(Robot):
 
     @property
     def _motors_ft(self) -> dict[str, type]:
+        return {
+            **{f"{joint_name}.pos": float for joint_name in self.config.joint_names},
+            **{f"{joint_name}.eff": float for joint_name in self.config.joint_names},
+        }
+
+    @property
+    def _action_ft(self) -> dict[str, type]:
         return {f"{joint_name}.pos": float for joint_name in self.config.joint_names}
 
     @property
@@ -63,7 +70,7 @@ class YamsFollower(Robot):
 
     @cached_property
     def action_features(self) -> dict[str, type]:
-        return self._motors_ft
+        return self._action_ft
 
     @property
     def is_connected(self) -> bool:
@@ -103,13 +110,16 @@ class YamsFollower(Robot):
         if not self.is_connected:
             raise DeviceNotConnectedError(f"{self} is not connected.")
 
-        # Read arm position
+        # Read arm state
         start = time.perf_counter()
 
         obs_dict = {}
-        joint_pos = self._client.get_joint_pos().result()  # type: ignore
+        obs = self._client.get_observations().result()  # type: ignore
+        joint_pos = np.concatenate([obs["joint_pos"], obs.get("gripper_pos", np.array([]))])
+        joint_eff = obs["joint_eff"]
         for i, key in enumerate(self.config.joint_names):
             obs_dict[f"{key}.pos"] = joint_pos[i]
+            obs_dict[f"{key}.eff"] = joint_eff[i]
 
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
