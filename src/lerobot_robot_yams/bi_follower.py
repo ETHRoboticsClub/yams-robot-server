@@ -64,8 +64,18 @@ class BiYamsFollower(Robot):
     @property
     def _motors_ft(self) -> dict[str, type]:
         return {
-            f"left_{motor}.pos": float for motor in self.left_arm.config.joint_names
-        } | {f"right_{motor}.pos": float for motor in self.right_arm.config.joint_names}
+            **{f"left_{motor}.pos": float for motor in self.left_arm.config.joint_names},
+            **{f"left_{motor}.eff": float for motor in self.left_arm.config.joint_names},
+            **{f"right_{motor}.pos": float for motor in self.right_arm.config.joint_names},
+            **{f"right_{motor}.eff": float for motor in self.right_arm.config.joint_names},
+        }
+
+    @property
+    def _action_ft(self) -> dict[str, type]:
+        return {
+            **{f"left_{motor}.pos": float for motor in self.left_arm.config.joint_names},
+            **{f"right_{motor}.pos": float for motor in self.right_arm.config.joint_names},
+        }
 
     @property
     def _cameras_ft(self) -> dict[str, tuple]:
@@ -80,7 +90,7 @@ class BiYamsFollower(Robot):
 
     @cached_property
     def action_features(self) -> dict[str, type]:
-        return self._motors_ft
+        return self._action_ft
 
     @property
     def is_connected(self) -> bool:
@@ -116,6 +126,10 @@ class BiYamsFollower(Robot):
 
         right_obs = self.right_arm.get_observation()
         obs_dict.update({f"right_{key}": value for key, value in right_obs.items()})
+        print(
+            f"gripper.eff left={left_obs['gripper.eff']:.2f} right={right_obs['gripper.eff']:.2f}",
+            flush=True,
+        )
         
         if with_cameras:
             for cam_key, cam in self.cameras.items():
