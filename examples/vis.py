@@ -9,16 +9,20 @@ Usage:
 
 import argparse
 import time
+from pathlib import Path
 
 import mujoco
 import mujoco.viewer
 import numpy as np
+import yaml
 
 from i2rt.robots.utils import GripperType
-from lerobot_robot_yams.forward_kinematics import check_ground_collision
+from lerobot_robot_yams.forward_kinematics import check_action
 
 PORTS = {"left": 11333, "right": 11334}
 DT = 0.02  # 50 Hz
+
+_ARMS_CONFIG = Path(__file__).resolve().parents[1] / "configs" / "arms.yaml"
 
 # RGBA: safe=green, collision=red
 _SAFE  = np.array([0.2, 0.8, 0.2, 1.0])
@@ -30,8 +34,11 @@ def main() -> None:
     parser.add_argument("side", choices=["left", "right"])
     parser.add_argument("--dummy", action="store_true", help="Run without a connected arm")
     parser.add_argument("--angles", type=float, nargs="+", help="Fixed joint angles in radians")
-    parser.add_argument("--ground-z", type=float, default=0.05, help="Ground plane z (default 0.0)")
     args = parser.parse_args()
+
+    collision_cfg = yaml.safe_load(_ARMS_CONFIG.read_text()).get("collision", {})
+    ground_z = collision_cfg.get("ground_z", 0.05)
+    link6_length = collision_cfg.get("link6_length", 0.15)
 
     xml = GripperType.LINEAR_3507.get_xml_path()
     model = mujoco.MjModel.from_xml_path(xml)
@@ -60,7 +67,7 @@ def main() -> None:
             g = scn.geoms[scn.ngeom]
             mujoco.mjv_initGeom(g, mujoco.mjtGeom.mjGEOM_PLANE, np.zeros(3), np.zeros(3), np.eye(3).flatten(), np.array([0.5, 0.5, 0.5, 0.3]))
             g.size[:] = [0.5, 0.5, 0.001]
-            g.pos[:] = [0, 0, args.ground_z]
+            g.pos[:] = [0, 0, ground_z]
             g.mat[:] = np.eye(3)
             scn.ngeom += 1
 
@@ -71,7 +78,7 @@ def main() -> None:
             data.qpos[: model.nq] = joints[: model.nq]
             mujoco.mj_kinematics(model, data)
 
-            collision = check_ground_collision(joints[:6], ground_z=args.ground_z)
+            collision, _ = check_action(joints[:6], ground_z=ground_z, link6_length=link6_length)
             color = _CLASH if collision else _SAFE
             model.geom_rgba[:] = color  # tint all geoms
 

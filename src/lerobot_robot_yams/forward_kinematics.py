@@ -53,9 +53,6 @@ def _make_tf(rot: np.ndarray, pos: np.ndarray) -> np.ndarray:
     return T
 
 
-_LINK6_LENGTH = 0.15  # metres, approximate tip-to-joint6-origin distance
-
-
 def arm_fk(joint_angles: np.ndarray) -> list[np.ndarray]:
     """Return world-frame positions of each link origin (after each joint).
 
@@ -83,30 +80,29 @@ def arm_fk(joint_angles: np.ndarray) -> list[np.ndarray]:
     return positions, T
 
 
-def check_ground_collision(
+def check_action(
     joint_angles: np.ndarray,
-    ground_z: float = 0.05,
-    margin: float = 0.00,
-) -> bool:
-    """Return True if any link origin (excluding base) is below ground_z + margin.
+    ground_z: float,
+    link6_length: float,
+) -> tuple[bool, np.ndarray]:
+    """Run FK once and return (ground_collision, ee_tip_position).
 
-    For the last link the full volume is checked by sampling N points along its
-    local z-axis from joint6 origin to the tip (_LINK6_LENGTH away).
-
-    The base_link origin sits at z=0 on the table surface.
-    Both arms share the same chain (arm2 offset is purely in y).
+    Returns True (rejected) if:
+    - any link or the last-link volume is below ground_z, or
+    - joint1 (base rotation) exceeds ±90°.
     """
     positions, T_tip = arm_fk(joint_angles)
-    threshold = ground_z + margin
+    tip = T_tip[:3, 3] + link6_length * T_tip[:3, 2]
 
-    if any(pos[2] < threshold for pos in positions[1:]):
-        return True
+    if abs(joint_angles[0]) > np.pi / 2:
+        return True, tip
 
-    # Sample along last link's local z-axis (world direction = T_tip[:3, 2])
+    if any(pos[2] < ground_z for pos in positions[1:]):
+        return True, tip
+
     local_z_world = T_tip[:3, 2]
-    tip_origin = positions[-1]
-    for t in np.linspace(0, _LINK6_LENGTH, 10):
-        if (tip_origin + t * local_z_world)[2] < threshold:
-            return True
+    for t in np.linspace(0, link6_length, 10):
+        if (positions[-1] + t * local_z_world)[2] < ground_z:
+            return True, tip
 
-    return False
+    return False, tip
