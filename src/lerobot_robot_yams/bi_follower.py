@@ -50,10 +50,12 @@ class BiYamsFollower(Robot):
         left_arm_config = YamsFollowerConfig(
             can_port=self.config.left_arm_can_port,
             server_port=self.config.left_arm_server_port,
+            side="left",
         )
         right_arm_config = YamsFollowerConfig(
             can_port=self.config.right_arm_can_port,
             server_port=self.config.right_arm_server_port,
+            side="right",
         )
 
         self.cameras = make_cameras_from_configs(config.cameras)
@@ -106,13 +108,16 @@ class BiYamsFollower(Robot):
 
         self.left_arm.connect()
         self.right_arm.connect()
+        self.calibrate()
 
     @property
     def is_calibrated(self) -> bool:
-        return True
+        return self.left_arm.is_calibrated and self.right_arm.is_calibrated
 
     def calibrate(self) -> None:
-        pass
+        logger.info("Calibrating follower effort offsets. Keep both arms unloaded and still.")
+        self.left_arm.calibrate()
+        self.right_arm.calibrate()
 
     def configure(self) -> None:
         self.left_arm.configure()

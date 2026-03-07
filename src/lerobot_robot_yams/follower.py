@@ -3,10 +3,12 @@ import multiprocessing as mp
 import time
 from dataclasses import dataclass, field
 from functools import cached_property
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import portal
+import yaml
 from lerobot.cameras import CameraConfig, make_cameras_from_configs
 from lerobot.robots import Robot, RobotConfig
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
@@ -14,6 +16,7 @@ from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnected
 from lerobot_robot_yams.robot_core.yams_server import run_robot_server
 
 logger = logging.getLogger(__name__)
+CALIBRATION_DIR = Path(__file__).resolve().parent / "calibration"
 
 
 @RobotConfig.register_subclass("yams_follower")
@@ -23,6 +26,10 @@ class YamsFollowerConfig(RobotConfig):
     server_port: int
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
     gripper: str = "linear_3507"
+    side: str = "right"
+    effort_calibration_path: str | None = None
+    effort_calibration_samples: int = 100
+    effort_calibration_dt: float = 0.01
     joint_names: list[str] = field(
         default_factory=lambda: [
             "joint_1",
@@ -45,6 +52,26 @@ class YamsFollower(Robot):
         self.config = config
         self._client = None
         self.cameras = make_cameras_from_configs(config.cameras)
+        self._effort_offsets = self._load_effort_offsets()
+
+    def _calibration_path(self) -> Path:
+        if self.config.effort_calibration_path is not None:
+            return Path(self.config.effort_calibration_path)
+        return CALIBRATION_DIR / f"follower_effort_{self.config.side}.yaml"
+
+    def _load_effort_offsets(self) -> dict[str, float]:
+        path = self._calibration_path()
+        if not path.exists():
+            return {}
+        with open(path, "r") as f:
+            data = yaml.safe_load(f) or {}
+        return {k: float(v) for k, v in data.get("offsets", {}).items()}
+
+    def _save_effort_offsets(self) -> None:
+        path = self._calibration_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            yaml.safe_dump({"offsets": self._effort_offsets}, f, sort_keys=True)
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -98,10 +125,25 @@ class YamsFollower(Robot):
 
     @property
     def is_calibrated(self) -> bool:
-        return True
+        return len(self._effort_offsets) == len(self.config.joint_names)
 
     def calibrate(self) -> None:
-        pass
+        if not self.is_connected:
+            raise DeviceNotConnectedError(f"{self} is not connected.")
+
+        samples = []
+        for _ in range(self.config.effort_calibration_samples):
+            obs = self._client.get_observations().result()  # type: ignore
+            samples.append(np.asarray(obs["joint_eff"], dtype=float))
+            time.sleep(self.config.effort_calibration_dt)
+
+        offsets = np.median(np.stack(samples), axis=0)
+        self._effort_offsets = {
+            joint_name: float(offset)
+            for joint_name, offset in zip(self.config.joint_names, offsets)
+        }
+        self._save_effort_offsets()
+        logger.info("%s effort calibrated: %s", self, self._effort_offsets)
 
     def configure(self) -> None:
         pass
@@ -119,7 +161,7 @@ class YamsFollower(Robot):
         joint_eff = obs["joint_eff"]
         for i, key in enumerate(self.config.joint_names):
             obs_dict[f"{key}.pos"] = joint_pos[i]
-            obs_dict[f"{key}.eff"] = joint_eff[i]
+            obs_dict[f"{key}.eff"] = joint_eff[i] - self._effort_offsets.get(key, 0.0)
 
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")
