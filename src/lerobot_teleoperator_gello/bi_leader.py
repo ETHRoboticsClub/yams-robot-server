@@ -30,6 +30,10 @@ class BiYamsLeaderConfig(TeleoperatorConfig):
     right_arm_port: str
     gripper_open_pos: int = 2280
     gripper_closed_pos: int = 1670
+    gripper_feedback_gain: float = 8.0
+    gripper_feedback_deadband: float = 0.0
+    gripper_feedback_limit: int = 150
+    gripper_feedback_alpha: float = 0.2
 
 
 class BiYamsLeader(Teleoperator):
@@ -44,12 +48,20 @@ class BiYamsLeader(Teleoperator):
             port=self.config.left_arm_port,
             gripper_open_pos=self.config.gripper_open_pos,
             gripper_closed_pos=self.config.gripper_closed_pos,
+            gripper_feedback_gain=self.config.gripper_feedback_gain,
+            gripper_feedback_deadband=self.config.gripper_feedback_deadband,
+            gripper_feedback_limit=self.config.gripper_feedback_limit,
+            gripper_feedback_alpha=self.config.gripper_feedback_alpha,
             side="left",
         )
         right_arm_config = YamsLeaderConfig(
             port=self.config.right_arm_port,
             gripper_open_pos=self.config.gripper_open_pos,
             gripper_closed_pos=self.config.gripper_closed_pos,
+            gripper_feedback_gain=self.config.gripper_feedback_gain,
+            gripper_feedback_deadband=self.config.gripper_feedback_deadband,
+            gripper_feedback_limit=self.config.gripper_feedback_limit,
+            gripper_feedback_alpha=self.config.gripper_feedback_alpha,
             side="right",
         )
 
@@ -65,7 +77,7 @@ class BiYamsLeader(Teleoperator):
 
     @property
     def feedback_features(self) -> dict[str, type]:
-        return {}
+        return {"left_gripper.eff": float, "right_gripper.eff": float}
 
     @property
     def is_connected(self) -> bool:
@@ -103,8 +115,18 @@ class BiYamsLeader(Teleoperator):
         }
 
     def send_feedback(self, feedback: dict[str, float]) -> None:
-        # TODO(rcadene, aliberts): Implement force feedback
-        raise NotImplementedError
+        left_feedback = {
+            key.removeprefix("left_"): value
+            for key, value in feedback.items()
+            if key.startswith("left_")
+        }
+        right_feedback = {
+            key.removeprefix("right_"): value
+            for key, value in feedback.items()
+            if key.startswith("right_")
+        }
+        self.left_arm.send_feedback(left_feedback)
+        self.right_arm.send_feedback(right_feedback)
 
     def disconnect(self) -> None:
         with ThreadPoolExecutor(max_workers=2) as ex:

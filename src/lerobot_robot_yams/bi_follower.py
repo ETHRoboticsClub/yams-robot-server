@@ -14,6 +14,7 @@ from lerobot.robots import Robot, RobotConfig
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 from lerobot_robot_yams.forward_kinematics import check_action
+from utils.terminal_status import TerminalStatus
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ class BiYamsFollower(Robot):
         self.left_arm = YamsFollower(left_arm_config)
         self.right_arm = YamsFollower(right_arm_config)
         self._last_angles: dict[str, np.ndarray | None] = {"left": None, "right": None}
+        self._status = TerminalStatus(interval=0.2)
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -126,9 +128,8 @@ class BiYamsFollower(Robot):
 
         right_obs = self.right_arm.get_observation()
         obs_dict.update({f"right_{key}": value for key, value in right_obs.items()})
-        print(
-            f"gripper.eff left={left_obs['gripper.eff']:.2f} right={right_obs['gripper.eff']:.2f}",
-            flush=True,
+        self._status.update(
+            f"gripper.eff  left={left_obs['gripper.eff']:7.2f}  right={right_obs['gripper.eff']:7.2f}"
         )
         
         if with_cameras:
@@ -175,6 +176,7 @@ class BiYamsFollower(Robot):
         return {**prefixed_send_action_left, **prefixed_send_action_right}
 
     def disconnect(self):
+        self._status.close()
         with ThreadPoolExecutor(max_workers=2) as ex:
             ex.submit(self.left_arm.disconnect)
             ex.submit(self.right_arm.disconnect)

@@ -14,4 +14,5 @@ uv run lerobot-teleoperate \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
     --fps=250 \
-    --robot.cameras="$cameras" 
+    --robot.cameras="$cameras" \
+    "$@"
