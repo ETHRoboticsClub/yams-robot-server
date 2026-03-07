@@ -3,14 +3,17 @@ const keys = cfg.keys;
 const labelMapBySource = cfg.labels;
 const hz = cfg.hz;
 const maxBufferPoints = cfg.maxBufferPoints;
+const taskGoals = cfg.taskGoals || {};
 const leftKeys = keys.filter((k) => k.startsWith('left_'));
 const rightKeys = keys.filter((k) => k.startsWith('right_'));
 
 const streamStatusEl = document.getElementById('stream-status');
 const historyInput = document.getElementById('history-s');
-const controlForm = document.getElementById('control-form');
-const controlText = document.getElementById('control-text');
+const taskSelect = document.getElementById('task-select');
+const recordBtn = document.getElementById('record-btn');
 const controlResult = document.getElementById('control-result');
+const refreshTreeBtn = document.getElementById('refresh-tree');
+const trajTreeEl = document.getElementById('traj-tree');
 const followerStatusEl = document.getElementById('follower-status');
 const leaderStatusEl = document.getElementById('leader-status');
 const cameraStatusEl = document.getElementById('camera-status');
@@ -19,6 +22,13 @@ const cameraGridEl = document.getElementById('camera-grid');
 let historyS = cfg.historyS;
 let maxPoints = Math.max(8, Math.round(hz * historyS));
 historyInput.value = historyS.toFixed(0);
+
+for (const task of cfg.tasks || []) {
+  const opt = document.createElement('option');
+  opt.value = task;
+  opt.textContent = task;
+  taskSelect.appendChild(opt);
+}
 
 function setStreamStatus(text, ok) {
   streamStatusEl.textContent = text;
@@ -211,16 +221,6 @@ class Dashboard {
   }
 }
 
-async function sendControl(text) {
-  const payload = { type: 'note', text };
-  const res = await fetch('/control', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-}
-
 const dashboard = new Dashboard();
 const es = new EventSource('/events');
 es.onopen = () => setStreamStatus('connected', true);
@@ -238,18 +238,101 @@ historyInput.onchange = () => {
   dashboard.trimAll();
 };
 
-controlForm.onsubmit = async (evt) => {
-  evt.preventDefault();
-  const text = controlText.value.trim();
-  if (!text) return;
+let recording = false;
+
+recordBtn.onclick = async () => {
+  recording = !recording;
+  recordBtn.classList.toggle('recording', recording);
+  recordBtn.textContent = recording ? '\u25A0 Stop Recording' : '\u25CF Start Recording';
   try {
-    await sendControl(text);
-    controlResult.textContent = `sent: ${text}`;
-    controlText.value = '';
+    await fetch('/control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'trajectory', action: recording ? 'start' : 'stop', task: taskSelect.value }),
+    });
+    if (recording) {
+      controlResult.textContent = `Recording (${taskSelect.value})…`;
+    } else {
+      controlResult.textContent = 'Saved.';
+      loadTree();
+    }
   } catch (err) {
-    controlResult.textContent = `failed to send: ${err}`;
+    controlResult.textContent = `failed: ${err}`;
   }
 };
+
+async function loadTree() {
+  const task = taskSelect.value;
+  if (!task) { trajTreeEl.innerHTML = ''; return; }
+  try {
+    const res = await fetch('/trajectories');
+    const tree = await res.json();
+    trajTreeEl.innerHTML = '';
+
+    const eps = tree[task] || [];
+    const goodCount = eps.filter(e => !e.marked_bad).length;
+    const goal = taskGoals[task] ?? null;
+
+    // Progress bar
+    if (goal !== null) {
+      const pct = Math.min(100, Math.round((goodCount / goal) * 100));
+      const progWrap = document.createElement('div');
+      progWrap.className = 'traj-progress';
+      progWrap.innerHTML = `
+        <div class="traj-progress-label">
+          <span>${goodCount} / ${goal} episodes</span>
+          <span>${pct}%</span>
+        </div>
+        <div class="traj-progress-bar"><div class="traj-progress-fill" style="width:${pct}%"></div></div>
+      `;
+      trajTreeEl.appendChild(progWrap);
+    } else {
+      const countEl = document.createElement('div');
+      countEl.className = 'traj-count';
+      countEl.textContent = `${goodCount} episode${goodCount !== 1 ? 's' : ''} collected`;
+      trajTreeEl.appendChild(countEl);
+    }
+
+    if (!eps.length) {
+      const empty = document.createElement('div');
+      empty.className = 'traj-empty';
+      empty.textContent = 'No episodes yet.';
+      trajTreeEl.appendChild(empty);
+      return;
+    }
+
+    const ul = document.createElement('ul');
+    ul.className = 'traj-ep-list';
+    for (const ep of [...eps].reverse()) {
+      const li = document.createElement('li');
+      li.className = 'traj-ep' + (ep.marked_bad ? ' bad' : '') + (ep.session ? ' session' : '');
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'ep-name';
+      nameSpan.textContent = `episode ${ep.name}`;
+      li.appendChild(nameSpan);
+      const btn = document.createElement('button');
+      btn.className = 'mark-bad-btn';
+      btn.textContent = ep.marked_bad ? 'restore' : '\u2717';
+      btn.onclick = async () => {
+        await fetch('/mark_bad', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task, episode: ep.name, bad: !ep.marked_bad }),
+        });
+        loadTree();
+      };
+      li.appendChild(btn);
+      ul.appendChild(li);
+    }
+    trajTreeEl.appendChild(ul);
+  } catch (err) {
+    trajTreeEl.textContent = `Error: ${err}`;
+  }
+}
+
+refreshTreeBtn.onclick = loadTree;
+taskSelect.addEventListener('change', loadTree);
+loadTree();
 
 function tick() {
   dashboard.render();

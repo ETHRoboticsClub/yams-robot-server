@@ -1,0 +1,5 @@
+tasks:
+  - name: towel folding
+    goal: 50
+  - name: miscellaneous
+    goal: 10

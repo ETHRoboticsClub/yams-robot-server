@@ -78,6 +78,27 @@ class LiveJointPlotter:
 
         self._last_camera_t = 0.0
 
+        self.trajectory_dir: Path | None = None
+        self.task_names: list[str] = []
+        self.task_goals: dict[str, int | None] = {}
+        self.session_episodes: set[tuple[str, str]] = set()  # (task, ep_num)
+        self._current_task: str = 'NA'
+
+    def process_trajectory_controls(self, trajectory: list, collecting) -> None:
+        """Process any queued UI control messages for trajectory start/stop."""
+        from utils.teleop_data import save_trajectory
+        for msg in self.pop_control_messages():
+            if msg.get('type') == 'trajectory':
+                if msg.get('action') == 'start':
+                    self._current_task = msg.get('task', 'NA')
+                    collecting.set()
+                elif msg.get('action') == 'stop' and collecting.is_set():
+                    collecting.clear()
+                    import logging
+                    ep_dir = save_trajectory(list(trajectory), self._current_task, logging.getLogger(__name__))
+                    self.session_episodes.add((self._current_task, ep_dir.name))
+                    trajectory.clear()
+
     def _render_index(self) -> bytes:
         config = {
             'keys': self.joint_keys,
@@ -89,6 +110,8 @@ class LiveJointPlotter:
             'hz': self.hz,
             'historyS': self.history_s,
             'maxBufferPoints': max(max(8, int(self.hz * self.history_s)), int(self.hz * 300.0)),
+            'tasks': self.task_names,
+            'taskGoals': self.task_goals,
         }
         html = _INDEX_TEMPLATE.replace('__TITLE__', self.title).replace(
             '__CONFIG_JSON__', json.dumps(config, separators=(',', ':'))
@@ -129,11 +152,39 @@ class LiveJointPlotter:
                     return
 
                 if self.path == '/static/app.js':
+                    body = (_WEB_DIR / 'app.js').read_bytes()
                     self.send_response(HTTPStatus.OK)
                     self.send_header('Content-Type', 'application/javascript; charset=utf-8')
-                    self.send_header('Content-Length', str(len(_APP_JS)))
+                    self.send_header('Content-Length', str(len(body)))
                     self.end_headers()
-                    self.wfile.write(_APP_JS)
+                    self.wfile.write(body)
+                    return
+
+                if self.path == '/trajectories':
+                    from utils.teleop_data import get_trajectory_metadata
+                    tree: dict[str, list[dict]] = {}
+                    tdir = plotter.trajectory_dir
+                    if tdir and tdir.is_dir():
+                        for task_dir in sorted(tdir.iterdir()):
+                            if task_dir.is_dir():
+                                eps = sorted(
+                                    (p for p in task_dir.iterdir() if p.is_dir()),
+                                    key=lambda p: int(p.name) if p.name.isdigit() else p.name,
+                                )
+                                tree[task_dir.name] = [
+                                    {
+                                        'name': p.name,
+                                        'marked_bad': get_trajectory_metadata(p).get('marked_bad', False),
+                                        'session': (task_dir.name, p.name) in plotter.session_episodes,
+                                    }
+                                    for p in eps
+                                ]
+                    body = json.dumps(tree, separators=(',', ':')).encode()
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
                     return
 
                 if self.path == '/events':
@@ -175,20 +226,34 @@ class LiveJointPlotter:
                 self.end_headers()
 
             def do_POST(self):
-                if self.path != '/control':
-                    self.send_response(HTTPStatus.NOT_FOUND)
+                if self.path == '/control':
+                    try:
+                        message = self._read_json()
+                    except Exception:
+                        self.send_response(HTTPStatus.BAD_REQUEST)
+                        self.end_headers()
+                        return
+                    wrapped = {'t': time.time(), **message}
+                    with plotter._control_lock:
+                        plotter._control_messages.append(wrapped)
+                    self.send_response(HTTPStatus.NO_CONTENT)
                     self.end_headers()
                     return
-                try:
-                    message = self._read_json()
-                except Exception:
-                    self.send_response(HTTPStatus.BAD_REQUEST)
+
+                if self.path == '/mark_bad':
+                    from utils.teleop_data import set_trajectory_marked_bad
+                    try:
+                        msg = self._read_json()
+                        set_trajectory_marked_bad(msg['task'], msg['episode'], msg.get('bad', True))
+                    except Exception:
+                        self.send_response(HTTPStatus.BAD_REQUEST)
+                        self.end_headers()
+                        return
+                    self.send_response(HTTPStatus.NO_CONTENT)
                     self.end_headers()
                     return
-                wrapped = {'t': time.time(), **message}
-                with plotter._control_lock:
-                    plotter._control_messages.append(wrapped)
-                self.send_response(HTTPStatus.NO_CONTENT)
+
+                self.send_response(HTTPStatus.NOT_FOUND)
                 self.end_headers()
 
             def log_message(self, fmt: str, *args: Any) -> None:
