@@ -5,11 +5,13 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Any
 
+import numpy as np
 from lerobot.cameras import CameraConfig
 from lerobot.cameras.utils import make_cameras_from_configs
 from lerobot.robots import Robot, RobotConfig
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
+from lerobot_robot_yams.forward_kinematics import check_ground_collision
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,7 @@ class BiYamsFollowerConfig(RobotConfig):
     left_arm_server_port: int = 11333
     right_arm_can_port: str = "can_follower_r"
     right_arm_server_port: int = 11334
+    ground_z: float = 0.0
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
@@ -126,6 +129,15 @@ class BiYamsFollower(Robot):
             for key, value in action.items()
             if key.startswith("right_")
         }
+
+
+
+        joint_names_6 = self.left_arm.config.joint_names[:6]
+        for side, arm_action in [("left", left_action), ("right", right_action)]:
+            angles = np.array([arm_action[f"{j}.pos"] for j in joint_names_6])
+            if check_ground_collision(angles, ground_z=self.config.ground_z):
+                logger.warning(f"{side} arm action rejected: ground collision detected")
+                return self.get_observation(with_cameras=False)
 
         send_action_left = self.left_arm.send_action(left_action)
         send_action_right = self.right_arm.send_action(right_action)
