@@ -1,4 +1,5 @@
 import logging
+import time
 
 from lerobot.utils.errors import DeviceNotConnectedError
 
@@ -14,6 +15,7 @@ class OpenCVCameraCached(OpenCVCamera):
     def __init__(self, config: OpenCVCameraCachedConfig):
         super().__init__(config)
         self.config = config
+        self.ready = False
 
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:
         if not self.is_connected:
@@ -21,6 +23,11 @@ class OpenCVCameraCached(OpenCVCamera):
 
         if self.thread is None or not self.thread.is_alive():
             self._start_read_thread()
+
+        if self.ready is False:
+            while self.latest_frame is None:
+                time.sleep(0.1)
+                self.ready = True
 
         with self.frame_lock:
             frame = self.latest_frame

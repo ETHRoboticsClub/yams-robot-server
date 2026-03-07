@@ -7,11 +7,12 @@ import time
 
 logger = logging.getLogger(__name__)
 
-def _free_port(port: int) -> None:
-    """Kill any process currently listening on *port* (TCP)."""
+def _free_port(port: int | str) -> None:
+    """Kill any process currently using *port*."""
+    target = f"{port}/tcp" if isinstance(port, int) else port
     try:
         out = subprocess.check_output(
-            ["fuser", f"{port}/tcp"],
+            ["fuser", target],
             stderr=subprocess.DEVNULL,
         ).decode().strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
