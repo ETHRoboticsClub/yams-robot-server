@@ -82,27 +82,30 @@ def arm_fk(joint_angles: np.ndarray) -> list[np.ndarray]:
 
 def check_action(
     joint_angles: np.ndarray,
+    last_joint_angles: np.ndarray | None,
     ground_z: float,
     link6_length: float,
-) -> tuple[bool, np.ndarray]:
-    """Run FK once and return (ground_collision, ee_tip_position).
-
-    Returns True (rejected) if:
-    - any link or the last-link volume is below ground_z, or
-    - joint1 (base rotation) exceeds ±90°.
+    max_joint_step: np.ndarray,
+) -> bool:
+    """Return True (rejected) if:
+    - joint1 (base rotation) exceeds ±90°,
+    - any joint moves more than max_joint_step from last_joint_angles, or
+    - any link or the last-link volume is below ground_z.
     """
-    positions, T_tip = arm_fk(joint_angles)
-    tip = T_tip[:3, 3] + link6_length * T_tip[:3, 2]
-
     if abs(joint_angles[0]) > np.pi / 2:
-        return True, tip
+        return True
+
+    if last_joint_angles is not None and np.any(np.abs(joint_angles - last_joint_angles) > max_joint_step):
+        return True
+
+    positions, T_tip = arm_fk(joint_angles)
 
     if any(pos[2] < ground_z for pos in positions[1:]):
-        return True, tip
+        return True
 
     local_z_world = T_tip[:3, 2]
     for t in np.linspace(0, link6_length, 10):
         if (positions[-1] + t * local_z_world)[2] < ground_z:
-            return True, tip
+            return True
 
-    return False, tip
+    return False

@@ -30,7 +30,7 @@ class BiYamsFollowerConfig(RobotConfig):
     right_arm_server_port: int = 11334
     ground_z: float = field(default_factory=lambda: _COLLISION["ground_z"])
     link6_length: float = field(default_factory=lambda: _COLLISION["link6_length"])
-    max_ee_step: float = field(default_factory=lambda: _COLLISION["max_ee_step"])
+    max_joint_step: np.ndarray = field(default_factory=lambda: np.array(_COLLISION["max_joint_step"]))
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
@@ -59,7 +59,7 @@ class BiYamsFollower(Robot):
         self.cameras = make_cameras_from_configs(config.cameras)
         self.left_arm = YamsFollower(left_arm_config)
         self.right_arm = YamsFollower(right_arm_config)
-        self._last_ee: dict[str, np.ndarray | None] = {"left": None, "right": None}
+        self._last_angles: dict[str, np.ndarray | None] = {"left": None, "right": None}
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -143,14 +143,10 @@ class BiYamsFollower(Robot):
         joint_names_6 = self.left_arm.config.joint_names[:6]
         for side, arm_action in [("left", left_action), ("right", right_action)]:
             angles = np.array([arm_action[f"{j}.pos"] for j in joint_names_6])
-            ground_collision, tip = check_action(angles, ground_z=self.config.ground_z, link6_length=self.config.link6_length)
-            if ground_collision:
-                logger.warning(f"{side} arm action rejected: unsafe configuration (ground or joint1 limit)")
+            if check_action(angles, self._last_angles[side], self.config.ground_z, self.config.link6_length, self.config.max_joint_step):
+                logger.warning(f"{side} arm action rejected")
                 return self.get_observation(with_cameras=False)
-            if self._last_ee[side] is not None and np.linalg.norm(tip - self._last_ee[side]) > self.config.max_ee_step:
-                logger.warning(f"{side} arm action rejected: EE step too large")
-                return self.get_observation(with_cameras=False)
-            self._last_ee[side] = tip
+            self._last_angles[side] = angles
 
         send_action_left = self.left_arm.send_action(left_action)
         send_action_right = self.right_arm.send_action(right_action)
