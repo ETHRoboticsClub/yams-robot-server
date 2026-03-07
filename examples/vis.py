@@ -38,7 +38,7 @@ def main() -> None:
 
     collision_cfg = yaml.safe_load(_ARMS_CONFIG.read_text()).get("collision", {})
     ground_z = collision_cfg.get("ground_z", 0.05)
-    link6_length = collision_cfg.get("link6_length", 0.15)
+    end_effector_length = collision_cfg.get("end_effector_length", 0.15)
     max_joint_step = np.array(collision_cfg.get("max_joint_step", [0.2] * 6))
 
     xml = GripperType.LINEAR_3507.get_xml_path()
@@ -79,7 +79,7 @@ def main() -> None:
             data.qpos[: model.nq] = joints[: model.nq]
             mujoco.mj_kinematics(model, data)
 
-            collision = check_action(joints[:6], None, ground_z, link6_length, max_joint_step)
+            collision = check_action(joints[:6], None, ground_z, end_effector_length, max_joint_step)
             color = _CLASH if collision else _SAFE
             model.geom_rgba[:] = color  # tint all geoms
 
