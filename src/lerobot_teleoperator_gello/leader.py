@@ -9,7 +9,6 @@ from lerobot.motors import Motor, MotorNormMode
 from lerobot.motors.dynamixel import DynamixelMotorsBus, OperatingMode
 from lerobot.teleoperators.teleoperator import Teleoperator, TeleoperatorConfig
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
-from utils.gripper_feedback import feedback_current
 
 logger = logging.getLogger(__name__)
 ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml"
@@ -187,20 +186,13 @@ class YamsLeader(Teleoperator):
         return action
 
     def send_feedback(self, feedback: dict[str, float]) -> None:
-        effort = feedback.get("gripper.eff")
-        if effort is None:
-            return
-
-        current = feedback_current(
-            effort=effort,
-            prev=self._gripper_feedback_current,
-            gain=self.config.gripper_feedback_gain,
-            deadband=self.config.gripper_feedback_deadband,
-            limit=self.config.gripper_feedback_limit,
-            alpha=self.config.gripper_feedback_alpha,
+        self._gripper_feedback_current = self.config.gripper_feedback_limit
+        self.bus.write(
+            "Goal_Current",
+            "gripper",
+            self.config.gripper_feedback_limit,
+            normalize=False,
         )
-        self._gripper_feedback_current = current
-        self.bus.write("Goal_Current", "gripper", current, normalize=False)
 
     def disconnect(self) -> None:
         if not self.is_connected:

@@ -20,8 +20,8 @@ from utils.terminal_status import TerminalStatus
 logger = logging.getLogger(__name__)
 RED_DOT = "\033[31m●\033[0m"
 GREEN_DOT = "\033[32m●\033[0m"
-GRIPPER_GUARD_EFFORT = 0.2
-GRIPPER_GUARD_VEL = 0.3
+GRIPPER_GUARD_EFFORT = 0.25
+GRIPPER_GUARD_VEL = 0.6
 GRIPPER_REOPEN_STEP = 0.01
 
 _ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml"
