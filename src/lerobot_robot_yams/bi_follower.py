@@ -20,6 +20,9 @@ from utils.terminal_status import TerminalStatus
 logger = logging.getLogger(__name__)
 RED_DOT = "\033[31m●\033[0m"
 GREEN_DOT = "\033[32m●\033[0m"
+GRIPPER_GUARD_EFFORT = 0.2
+GRIPPER_GUARD_VEL = 0.3
+GRIPPER_REOPEN_STEP = 0.01
 
 _ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml"
 _COLLISION = yaml.safe_load(_ARMS_CONFIG_PATH.read_text())["collision"]
@@ -195,9 +198,9 @@ class BiYamsFollower(Robot):
             if action["gripper.pos"] > hold["pos"]:
                 hold["active"] = False
             return
-        if abs(state["vel"]) < 0.3 and abs(state["eff"]) > 0.2:
+        if abs(state["vel"]) < GRIPPER_GUARD_VEL and abs(state["eff"]) > GRIPPER_GUARD_EFFORT:
             hold["active"] = True
-            hold["pos"] = state["pos"]
+            hold["pos"] = min(1.0, state["pos"] + GRIPPER_REOPEN_STEP)
             action["gripper.pos"] = max(action["gripper.pos"], hold["pos"])
 
     def get_observation(self, with_cameras=True) -> dict[str, Any]:
