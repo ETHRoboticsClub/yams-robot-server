@@ -1,6 +1,7 @@
 import logging
 import time
 
+import numpy as np
 from lerobot.utils.errors import DeviceNotConnectedError
 
 from .cached_config import OpenCVCameraCachedConfig
@@ -16,6 +17,7 @@ class OpenCVCameraCached(OpenCVCamera):
         super().__init__(config)
         self.config = config
         self.ready = False
+        self.last_frame = np.zeros([self.config.height, self.config.width, 3], np.uint8)
 
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:
         if not self.is_connected:
@@ -57,3 +59,16 @@ class OpenCVCameraCached(OpenCVCamera):
                 break
             except Exception as e:
                 logger.warning(f"Error reading frame in background thread for {self}: {e}")
+
+if __name__ == "__main__":
+    from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
+    config = OpenCVCameraCachedConfig(
+        index_or_path=0,
+        fps =30,
+        width =640,
+        height=480,
+        )
+
+    cam = OpenCVCameraCached(config)
+    cam.connect()
+    img = cam.async_read()

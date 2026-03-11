@@ -2,7 +2,7 @@ import time
 
 from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
-leader_config = YamsLeaderConfig(port="/dev/ttyUSB0", side="right")
+leader_config = YamsLeaderConfig(port="/dev/leader-left", side="left")
 
 leader = YamsLeader(leader_config)
 leader.connect()

@@ -149,10 +149,10 @@ cameras:
       width: 640
       height: 480
       fourcc: MJPG
-#    topdown:
-#      type: zed
-#      fps: 30
-#      width: 640
-#      height: 480
-#      rotation: NO_ROTATION
-#      cached_frames: true
+    topdown:
+      type: zed
+      fps: 30
+      width: 640
+      height: 480
+      rotation: NO_ROTATION
+      cached_frames: true

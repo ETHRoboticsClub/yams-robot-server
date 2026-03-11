@@ -1,12 +1,12 @@
 
 
 YAML=configs/arms.yaml
-REPO=ETHRC/fake1
+REPO=ETHRC/fake4
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
 
-lerobot-dataset-viz --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO"  --episode-index 0 --mode distant --display-compressed-images true
+lerobot-dataset-viz --repo-id "$REPO" --episode-index 0 --mode local
 
 
 

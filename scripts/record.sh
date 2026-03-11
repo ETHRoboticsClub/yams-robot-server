@@ -1,5 +1,6 @@
+echo "working directory $PWD"
 YAML=configs/arms.yaml
-REPO=ETHRC/fake1
+REPO=ETHRC/fake4
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
@@ -21,7 +22,7 @@ uv run lerobot-record \
     --teleop.left_arm_port="$LEFT_PORT" \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
-    --dataset.fps=100 \
+    --dataset.fps=60 \
     --dataset.num_episodes=1 \
     --dataset.episode_time_s=120 \
     --dataset.reset_time_s=2 \
