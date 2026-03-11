@@ -13,12 +13,11 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # if [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ] && [ ! -f "$HOME/.cache/huggingface/lerobot/$REPO/meta/info.json" ]; then
 #     mv "$HOME/.cache/huggingface/lerobot/$REPO" "$HOME/.cache/huggingface/lerobot/$REPO.stale.$(date +%s)"
 # fi
-
+rm -rf /home/ethrc/.cache/huggingface/lerobot/ETHRC/act
 
 uv run lerobot-record \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
-    --robot.cameras="$cameras" \
     --teleop.left_arm_port="$LEFT_PORT" \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
@@ -31,6 +30,7 @@ uv run lerobot-record \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub=false \
     --resume=false \
+    --robot.cameras="$cameras" \
     # --dataset.streaming_encoding=true \
     # --dataset.vcodec=auto \
     # --dataset.encoder_threads=2

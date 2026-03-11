@@ -948,6 +948,74 @@ wheels = [
 ]
 
 [[package]]
+name = "lerobot-camera-cached"
+version = "0.1.0"
+source = { editable = "src/lerobot_camera_cached" }
+dependencies = [
+    { name = "lerobot" },
+    { name = "opencv-python" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "lerobot", specifier = "==0.5.0" },
+    { name = "opencv-python" },
+]
+
+[[package]]
+name = "lerobot-camera-zed"
+version = "0.1.0"
+source = { editable = "src/lerobot_camera_zed" }
+dependencies = [
+    { name = "lerobot" },
+    { name = "opencv-python" },
+    { name = "pyzed" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "lerobot", specifier = "==0.5.0" },
+    { name = "opencv-python" },
+    { name = "pyzed", url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl" },
+]
+
+[[package]]
+name = "lerobot-robot-yams"
+version = "0.1.0"
+source = { editable = "src/lerobot_robot_yams" }
+dependencies = [
+    { name = "dynamixel-sdk" },
+    { name = "i2rt" },
+    { name = "lerobot" },
+    { name = "opencv-python" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dynamixel-sdk", specifier = ">=3.8.4" },
+    { name = "i2rt" },
+    { name = "lerobot", specifier = "==0.5.0" },
+    { name = "opencv-python" },
+    { name = "pyyaml", specifier = ">=6.0" },
+]
+
+[[package]]
+name = "lerobot-teleoperator-gello"
+version = "0.1.0"
+source = { editable = "src/lerobot_teleoperator_gello" }
+dependencies = [
+    { name = "dynamixel-sdk" },
+    { name = "lerobot" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "dynamixel-sdk", specifier = ">=3.8.4" },
+    { name = "lerobot", specifier = "==0.5.0" },
+]
+
+[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2358,6 +2426,10 @@ dependencies = [
     { name = "i2rt" },
     { name = "ipykernel" },
     { name = "lerobot" },
+    { name = "lerobot-camera-cached" },
+    { name = "lerobot-camera-zed" },
+    { name = "lerobot-robot-yams" },
+    { name = "lerobot-teleoperator-gello" },
     { name = "opencv-python" },
     { name = "pyyaml" },
     { name = "pyzed" },
@@ -2369,6 +2441,10 @@ requires-dist = [
     { name = "i2rt", editable = "third_party/i2rt" },
     { name = "ipykernel", specifier = ">=7.1.0" },
     { name = "lerobot", specifier = "==0.5.0" },
+    { name = "lerobot-camera-cached", editable = "src/lerobot_camera_cached" },
+    { name = "lerobot-camera-zed", editable = "src/lerobot_camera_zed" },
+    { name = "lerobot-robot-yams", editable = "src/lerobot_robot_yams" },
+    { name = "lerobot-teleoperator-gello", editable = "src/lerobot_teleoperator_gello" },
     { name = "opencv-python" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "pyzed", url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl" },

@@ -16,11 +16,19 @@ dependencies = [
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
     "pyzed",
+    "lerobot_robot_yams",
+    "lerobot_teleoperator_gello",
+    "lerobot_camera_zed",
+    "lerobot_camera_cached",
 ]
 
 [tool.uv.sources]
 i2rt = { path = "third_party/i2rt", editable = true }
 pyzed = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl" }
+lerobot_robot_yams = { path = "src/lerobot_robot_yams", editable = true }
+lerobot_teleoperator_gello = { path = "src/lerobot_teleoperator_gello", editable = true }
+lerobot_camera_zed = { path = "src/lerobot_camera_zed", editable = true }
+lerobot_camera_cached = { path = "src/lerobot_camera_cached", editable = true }
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -31,4 +39,4 @@ packages = ["src/lerobot_robot_yams", "src/lerobot_teleoperator_gello", "src/ler
 
 [tool.black]
 line-length = 100
-target-version = ['py310']
+target-version = ['py312']

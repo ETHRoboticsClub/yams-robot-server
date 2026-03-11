@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "lerobot_camera_cached"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+    "lerobot==0.5.0",
+    "opencv-python",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
