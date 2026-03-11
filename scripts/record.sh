@@ -1,4 +1,15 @@
+[ -z "$BASH" ] && exec bash "$0" "$@"
 echo "working directory $PWD"
+
+LOG=false
+for arg in "$@"; do [ "$arg" = "--log" ] && LOG=true; done
+if $LOG; then
+    mkdir -p logs
+    LOGFILE="logs/$(date +%Y%m%d_%H%M%S).out"
+    echo "Logging to $LOGFILE"
+    exec > >(tee "$LOGFILE") 2>&1
+fi
+
 YAML=configs/arms.yaml
 REPO=ETHRC/act
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
@@ -22,7 +33,7 @@ uv run lerobot-record \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
     --dataset.fps=60 \
-    --dataset.num_episodes=10 \
+    --dataset.num_episodes=1 \
     --dataset.episode_time_s=120 \
     --dataset.reset_time_s=3 \
     --dataset.single_task="Fold the towel." \
@@ -31,9 +42,9 @@ uv run lerobot-record \
     --dataset.push_to_hub=false \
     --resume=false \
     --robot.cameras="$cameras" \
-    # --dataset.streaming_encoding=true \
-    # --dataset.vcodec=auto \
-    # --dataset.encoder_threads=2
+    --dataset.streaming_encoding=true \
+    --dataset.vcodec=auto \
+    --dataset.encoder_threads=2
 
 
     # --dataset.streaming_encoding=true \
