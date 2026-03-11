@@ -153,10 +153,11 @@ class YoloPinocchioPolicy:
                     self.target_pos[2] = self.TABLE_Z + 0.15
                 self.gripper_cmd = OPEN_VAL
 
-            # --- STEP 2: THE 1 CM SAFETY FLOOR ---
-            # Enforce absolute Z-limit: Do not go below -0.035m (1cm above table)
-            if self.target_pos[2] < -0.035:
-                self.target_pos[2] = -0.035
+            # --- STEP 2: THE SAFETY FLOOR ---
+            # Enforce absolute Z-limit: Do not go below -0.048m (2mm above the system's -0.05m panic limit)
+            # The table is roughly at -0.045m, so this allows the gripper to safely hit the table.
+            if self.target_pos[2] < -0.048:
+                self.target_pos[2] = -0.048
                 
             error = self.target_pos - fingertip_pos
             xy_error_norm = np.linalg.norm(error[:2]) 
