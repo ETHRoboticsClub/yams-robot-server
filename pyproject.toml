@@ -40,3 +40,8 @@ packages = ["src/lerobot_robot_yams", "src/lerobot_teleoperator_gello", "src/ler
 [tool.black]
 line-length = 100
 target-version = ['py312']
+
+[dependency-groups]
+dev = [
+    "snakeviz>=2.2.2",
+]
