@@ -42,9 +42,9 @@ uv run lerobot-record \
     --dataset.push_to_hub=false \
     --resume=false \
     --robot.cameras="$cameras" \
-    --dataset.streaming_encoding=true \
-    --dataset.vcodec=auto \
-    --dataset.encoder_threads=2
+    # --dataset.streaming_encoding=true \
+    # --dataset.vcodec=auto \
+    # --dataset.encoder_threads=2
 
 
     # --dataset.streaming_encoding=true \

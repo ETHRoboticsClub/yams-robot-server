@@ -4,10 +4,11 @@ import time
 import numpy as np
 from lerobot.utils.errors import DeviceNotConnectedError
 
-from .cached_config import OpenCVCameraCachedConfig
 from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
 from numpy.typing import NDArray  # type: ignore  # TODO: add type stubs for numpy.typing
 from typing import Any
+
+from lerobot_camera_cached.cached_config import OpenCVCameraCachedConfig
 
 logger = logging.getLogger(__name__)
 
@@ -20,55 +21,48 @@ class OpenCVCameraCached(OpenCVCamera):
         self.last_frame = np.zeros([self.config.height, self.config.width, 3], np.uint8)
 
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:
-        if not self.is_connected:
-            raise DeviceNotConnectedError(f"{self} is not connected.")
+        """
+        Reads the latest available frame asynchronously.
 
+        This method retrieves the most recent frame captured by the background
+        read thread. It does not block waiting for the camera hardware directly,
+        but may wait up to timeout_ms for the background thread to provide a frame.
+        It is “best effort” under high FPS.
+
+        Args:
+            timeout_ms (float): Maximum time in milliseconds to wait for a frame
+                to become available. Defaults to 200ms (0.2 seconds).
+
+        Returns:
+            np.ndarray: The latest captured frame as a NumPy array in the format
+                       (height, width, channels), processed according to configuration.
+
+        Raises:
+            DeviceNotConnectedError: If the camera is not connected.
+            TimeoutError: If no frame becomes available within the specified timeout.
+            RuntimeError: If an unexpected error occurs.
+        """
         if self.thread is None or not self.thread.is_alive():
-            self._start_read_thread()
+            raise RuntimeError(f"{self} read thread is not running.")
 
-        if self.ready is False:
-            while self.latest_frame is None:
-                time.sleep(0.1)
-                self.ready = True
+        if not self.new_frame_event.wait(timeout=timeout_ms / 1000.0):
+            raise TimeoutError(
+                f"Timed out waiting for frame from camera {self} after {timeout_ms} ms. "
+                f"Read thread alive: {self.thread.is_alive()}."
+            )
+        frame = self.latest_frame
+        return frame
 
-        with self.frame_lock:
-            frame = self.latest_frame
-            return frame
-
-    def _read_loop(self) -> None:
-        """
-        Internal loop run by the background thread for asynchronous reading.
-
-        On each iteration:
-        1. Reads a color frame
-        2. Stores result in latest_frame (thread-safe)
-        3. Sets new_frame_event to notify listeners
-
-        Stops on DeviceNotConnectedError, logs other errors and continues.
-        """
-        if self.stop_event is None:
-            raise RuntimeError(f"{self}: stop_event is not initialized before starting read loop.")
-
-        while not self.stop_event.is_set():
-            try:
-                color_image = self.read()
-
-                self.latest_frame = color_image
-
-            except DeviceNotConnectedError:
-                break
-            except Exception as e:
-                logger.warning(f"Error reading frame in background thread for {self}: {e}")
 
 if __name__ == "__main__":
-    from lerobot.cameras.opencv.camera_opencv import OpenCVCamera
     config = OpenCVCameraCachedConfig(
-        index_or_path=0,
-        fps =30,
-        width =640,
+        index_or_path="/dev/video0",
+        fps=30,
+        width=640,
         height=480,
-        )
+    )
 
     cam = OpenCVCameraCached(config)
     cam.connect()
     img = cam.async_read()
+    cam.disconnect()

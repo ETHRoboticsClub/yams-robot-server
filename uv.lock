@@ -958,7 +958,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "lerobot", specifier = "==0.5.0" },
+    { name = "lerobot", specifier = ">=0.4.0" },
     { name = "opencv-python" },
 ]
 
@@ -974,7 +974,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "lerobot", specifier = "==0.5.0" },
+    { name = "lerobot", specifier = ">=0.4.0" },
     { name = "opencv-python" },
     { name = "pyzed", url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl" },
 ]
@@ -995,7 +995,7 @@ dependencies = [
 requires-dist = [
     { name = "dynamixel-sdk", specifier = ">=3.8.4" },
     { name = "i2rt" },
-    { name = "lerobot", specifier = "==0.5.0" },
+    { name = "lerobot", specifier = ">=0.4.0" },
     { name = "opencv-python" },
     { name = "pyyaml", specifier = ">=6.0" },
 ]
@@ -1012,7 +1012,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "dynamixel-sdk", specifier = ">=3.8.4" },
-    { name = "lerobot", specifier = "==0.5.0" },
+    { name = "lerobot", specifier = ">=0.4.0" },
 ]
 
 [[package]]

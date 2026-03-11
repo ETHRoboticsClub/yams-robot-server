@@ -7,7 +7,7 @@ name = "lerobot_robot_yams"
 version = "0.1.0"
 requires-python = "==3.12.*"
 dependencies = [
-    "lerobot==0.5.0",
+    "lerobot>=0.4.0",
     "i2rt",
     "dynamixel-sdk>=3.8.4",
     "opencv-python",
