@@ -23,7 +23,7 @@ uv run lerobot-record \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
     --dataset.fps=60 \
-    --dataset.num_episodes=1 \
+    --dataset.num_episodes=10 \
     --dataset.episode_time_s=120 \
     --dataset.reset_time_s=3 \
     --dataset.single_task="Fold the towel." \

@@ -44,7 +44,7 @@ class ZEDCamera(Camera):
             ]:
                 self.capture_width, self.capture_height = self.height, self.width
         if config.cached_frames:
-            logger.info('Running Zed cam in cashed mode')
+            logger.info('Running Zed cam in cached mode')
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}({self.camera_id})"
