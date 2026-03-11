@@ -49,10 +49,6 @@ class YamsLeaderConfig(TeleoperatorConfig):
     port: str
     gripper_open_pos: int = 2280
     gripper_closed_pos: int = 1670
-    gripper_feedback_gain: float = 4.0
-    gripper_feedback_deadband: float = 0.0
-    gripper_feedback_limit: int = 100
-    gripper_feedback_alpha: float = 0.2
     calibration_path: str = "src/lerobot_teleoperator_gello/calibration"
     side: str = "right"
 
@@ -79,7 +75,6 @@ class YamsLeader(Teleoperator):
                 self.calibration = yaml.safe_load(f)
         else:
             self.calibration = None
-        self._gripper_feedback_current = 0.0
 
     @property
     def action_features(self) -> dict[str, type]:
@@ -87,7 +82,7 @@ class YamsLeader(Teleoperator):
 
     @property
     def feedback_features(self) -> dict[str, type]:
-        return {"gripper.eff": float}
+        return {}
 
     @property
     def is_connected(self) -> bool:
@@ -121,12 +116,7 @@ class YamsLeader(Teleoperator):
             OperatingMode.CURRENT_POSITION.value,
             normalize=False,
         )
-        self.bus.write(
-            "Current_Limit",
-            "gripper",
-            self.config.gripper_feedback_limit,
-            normalize=False,
-        )
+        self.bus.write("Current_Limit", "gripper", 100, normalize=False)
         self.bus.write("Torque_Enable", "gripper", 1, normalize=False)
         self.bus.write(
             "Goal_Position", "gripper", self.config.gripper_open_pos, normalize=False
@@ -186,13 +176,7 @@ class YamsLeader(Teleoperator):
         return action
 
     def send_feedback(self, feedback: dict[str, float]) -> None:
-        self._gripper_feedback_current = self.config.gripper_feedback_limit
-        self.bus.write(
-            "Goal_Current",
-            "gripper",
-            self.config.gripper_feedback_limit,
-            normalize=False,
-        )
+        raise NotImplementedError
 
     def disconnect(self) -> None:
         if not self.is_connected:

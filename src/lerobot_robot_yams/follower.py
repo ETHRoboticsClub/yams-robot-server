@@ -15,9 +15,6 @@ from i2rt.robots.get_robot import get_yam_robot
 from i2rt.robots.utils import GripperType
 
 logger = logging.getLogger(__name__)
-CALIBRATION_DIR = Path(__file__).resolve().parent / "calibration"
-EFFORT_CALIBRATION_JOINTS = ("gripper",)
-
 
 @RobotConfig.register_subclass("yams_follower")
 @dataclass
@@ -50,40 +47,11 @@ class YamsFollower(Robot):
         super().__init__(config)
         self.config = config
         self.cameras = make_cameras_from_configs(config.cameras)
-        self._effort_offsets = self._load_effort_offsets()
-        self.last_calibration_max_effort: float | None = None
-        self._effort_calibration_samples: list[np.ndarray] = []
-        self._effort_calibration_t0: float | None = None
-
-    def _calibration_path(self) -> Path:
-        if self.config.effort_calibration_path is not None:
-            return Path(self.config.effort_calibration_path)
-        return CALIBRATION_DIR / f"follower_effort_{self.config.side}.yaml"
-
-    def _load_effort_offsets(self) -> dict[str, float]:
-        path = self._calibration_path()
-        if not path.exists():
-            return {}
-        with open(path, "r") as f:
-            data = yaml.safe_load(f) or {}
-        return {
-            k: float(v)
-            for k, v in data.get("offsets", {}).items()
-            if k in EFFORT_CALIBRATION_JOINTS
-        }
-
-    def _save_effort_offsets(self) -> None:
-        path = self._calibration_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w") as f:
-            yaml.safe_dump({"offsets": self._effort_offsets}, f, sort_keys=True)
 
     @property
     def _motors_ft(self) -> dict[str, type]:
         return {
             **{f"{joint_name}.pos": float for joint_name in self.config.joint_names},
-            **{f"{joint_name}.eff": float for joint_name in self.config.joint_names},
-            "gripper.vel": float,
         }
 
     @property
@@ -118,51 +86,10 @@ class YamsFollower(Robot):
 
     @property
     def is_calibrated(self) -> bool:
-        return all(joint in self._effort_offsets for joint in EFFORT_CALIBRATION_JOINTS)
-
-    def start_effort_calibration(self) -> None:
-        if not self.is_connected:
-            raise DeviceNotConnectedError(f"{self} is not connected.")
-        self._effort_offsets = {}
-        self.last_calibration_max_effort = None
-        self._effort_calibration_samples = []
-        self._effort_calibration_t0 = time.perf_counter()
-        logger.info("%s start collecting effort calibration data", self)
-
-    def _finish_effort_calibration(self) -> None:
-        samples = np.stack(self._effort_calibration_samples)
-        offsets = np.mean(samples, axis=0)
-        self._effort_offsets = {
-            joint_name: float(offset)
-            for joint_name, offset in zip(self.config.joint_names, offsets)
-            if joint_name in EFFORT_CALIBRATION_JOINTS
-        }
-        self._save_effort_offsets()
-        hz = len(samples) / max(time.perf_counter() - self._effort_calibration_t0, 1e-6)
-        window = max(1, round(hz * 0.1))
-        gripper_eff = np.abs(samples[:, self.config.joint_names.index("gripper")])
-        max_effort = np.convolve(gripper_eff, np.ones(window) / window, mode="valid").max()
-        self.last_calibration_max_effort = float(max_effort)
-        self._effort_calibration_samples = []
-        self._effort_calibration_t0 = None
-        logger.info("%s end collecting effort calibration data", self)
-        logger.info(
-            "%s effort calibrated: %s (max gripper effort %.3f over %d-sample avg at %.0f Hz)",
-            self,
-            self._effort_offsets,
-            self.last_calibration_max_effort,
-            window,
-            hz,
-        )
+        return True
 
     def calibrate(self) -> None:
-        self.start_effort_calibration()
-        deadline = self._effort_calibration_t0 + self.config.effort_calibration_duration_s
-        while time.perf_counter() < deadline:
-            obs = self.robot.get_observations()
-            self._effort_calibration_samples.append(np.asarray(obs["joint_eff"], dtype=float))
-            time.sleep(0.01)
-        self._finish_effort_calibration()
+        return
 
     def configure(self) -> None:
         pass
@@ -177,19 +104,8 @@ class YamsFollower(Robot):
         obs_dict = {}
         obs = self.robot.get_observations()
         joint_pos = np.concatenate([obs["joint_pos"], obs.get("gripper_pos", np.array([]))])
-        joint_vel = obs["joint_vel"]
-        joint_eff = obs["joint_eff"]
-        if self._effort_calibration_t0 is not None:
-            self._effort_calibration_samples.append(np.asarray(joint_eff, dtype=float))
-            if time.perf_counter() - self._effort_calibration_t0 >= self.config.effort_calibration_duration_s:
-                self._finish_effort_calibration()
         for i, key in enumerate(self.config.joint_names):
             obs_dict[f"{key}.pos"] = joint_pos[i]
-            effort = joint_eff[i]
-            if key in EFFORT_CALIBRATION_JOINTS:
-                effort -= self._effort_offsets.get(key, 0.0)
-            obs_dict[f"{key}.eff"] = effort
-        obs_dict["gripper.vel"] = joint_vel[self.config.joint_names.index("gripper")]
 
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read state: {dt_ms:.1f}ms")

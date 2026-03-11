@@ -10,15 +10,13 @@ sh third_party/i2rt/scripts/reset_all_can.sh
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 
-
-
 set -x
 uv run lerobot-teleoperate \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
     --teleop.left_arm_port="$LEFT_PORT" \
     --teleop.right_arm_port="$RIGHT_PORT" \
-    --display_data=false \
+    --display_data=true \
     --fps=250 \
     --robot.cameras="$cameras" 
 set +x
