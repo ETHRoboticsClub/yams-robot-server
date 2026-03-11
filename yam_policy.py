@@ -112,9 +112,12 @@ class YoloPinocchioPolicy:
         
         # 2. Read true joint angles from the real robot (via LeRobot batch)
         if 'observation.state' in batch:
+            # The server returns all 14 motors. We only want the first 7 (Left Arm)
             state_tensor = batch['observation.state'].squeeze(0).cpu().numpy()
-            n = min(len(state_tensor), self.model.nq)
-            self.current_q[:n] = state_tensor[:n]
+            left_arm_state = state_tensor[:7] # Left Joint 1-6 + Gripper
+            
+            n = min(len(left_arm_state), self.model.nq)
+            self.current_q[:n] = left_arm_state[:n]
 
         # 3. Run Pinocchio Inverse Kinematics (Brain Node Logic)
         if self.target_pos is not None:
@@ -196,7 +199,19 @@ class YoloPinocchioPolicy:
                 self.current_q = pin.integrate(self.model, self.current_q, step)
 
         # 4. Format output exactly how LeRobot expects it (PyTorch Tensor)
-        action_array = np.append(self.current_q[:7], self.gripper_cmd)
-        action_tensor = torch.tensor(action_array, dtype=torch.float32).unsqueeze(0)
+        # The BiYamsFollower action space is a flat array of 14 values:
+        # [left_joint_1..6, left_gripper, right_joint_1..6, right_gripper]
+        
+        # We only want to move the left arm:
+        left_arm_action = np.append(self.current_q[:6], self.gripper_cmd)
+        
+        # We freeze the right arm at 0.0
+        right_arm_action = np.zeros(7)
+        
+        # Combine into a single 14-element action array
+        combined_action = np.concatenate((left_arm_action, right_arm_action))
+        
+        # LeRobot expects a batch dimension: Shape (1, 14)
+        action_tensor = torch.tensor(combined_action, dtype=torch.float32).unsqueeze(0)
         
         return {"action": action_tensor}
