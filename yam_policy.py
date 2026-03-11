@@ -37,9 +37,9 @@ class YoloPinocchioPolicy:
         self.drop_timer = 0
         
         # --- CALIBRATION ---
-        # Physical Translation and Rotation of Zed-M to Robot Base
+        # Physical Translation and Rotation of Zed-M to Robot Base (w.r.t Left Arm)
         self.OFFSET_X = -0.235  # 23.5 cm behind the robot (-)
-        self.OFFSET_Y = 0.283   # 28.3 cm to the left (+)
+        self.OFFSET_Y = -0.283  # 28.3 cm to the right of the Left Arm (-)
         self.OFFSET_Z = 0.58    # 58.0 cm high (+)
         self.TILT_ANGLE = 45.0  # Tilted down 45 degrees
         self.TABLE_Z = -0.045   # The robot base is 4.5 cm ABOVE the table.
