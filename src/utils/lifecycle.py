@@ -42,7 +42,9 @@ def build_cleanup_and_sigint(
 def run_pre_setup(*server_ports: int, usb_ports: list[str] = []):
     subprocess.run(["bash", str(RESET_ALL_CAN_SCRIPT)], check=True)
     for usb_port in usb_ports:
-        device = Path(usb_port).name
-        subprocess.run(["sudo", "tee", f"/sys/bus/usb-serial/devices/{device}/latency_timer"], input="1\n", text=True, check=True)
+        device = Path(usb_port).resolve().name
+        latency_timer = Path("/sys/bus/usb-serial/devices") / device / "latency_timer"
+        if latency_timer.exists():
+            subprocess.run(["sudo", "tee", str(latency_timer)], input="1\n", text=True, check=True)
     for port in server_ports:
         _free_port(port)
