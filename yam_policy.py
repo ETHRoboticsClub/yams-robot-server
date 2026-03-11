@@ -10,7 +10,7 @@ class YoloPinocchioPolicy:
     A unified LeRobot Policy that completely replaces the ROS 2 architecture.
     It combines Vision (YOLO) and Brain (Pinocchio IK) into a single standard evaluate loop.
     """
-    def __init__(self, urdf_path="~/yam_ws/src/yam_botany_urdf/yam_st_urdf_with_linear_gripper.urdf"):
+    def __init__(self, urdf_path="urdf/yam_st_urdf_with_linear_gripper.urdf"):
         print("⏳ Loading YOLO-World AI for LeRobot...")
         self.yolo = YOLOWorld("yolov8s-world.pt")
         
@@ -20,7 +20,10 @@ class YoloPinocchioPolicy:
         self.yolo.set_classes([self.pick_class, self.place_class])
         
         print("⏳ Loading Pinocchio Kinematics for LeRobot...")
-        expanded_urdf = os.path.expanduser(urdf_path)
+        if urdf_path.startswith("~"):
+            expanded_urdf = os.path.expanduser(urdf_path)
+        else:
+            expanded_urdf = os.path.join(os.path.dirname(os.path.abspath(__file__)), urdf_path)
         self.model = pin.buildModelFromUrdf(expanded_urdf)
         self.data = self.model.createData()
         self.JOINT_ID = self.model.getFrameId("gripper")
