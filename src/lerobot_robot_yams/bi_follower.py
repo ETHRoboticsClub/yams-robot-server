@@ -1,6 +1,5 @@
 import logging
 import time
-from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -15,14 +14,8 @@ from lerobot.robots import Robot, RobotConfig
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 from lerobot_robot_yams.forward_kinematics import check_action
-# from utils.terminal_status import TerminalStatus
 
 logger = logging.getLogger(__name__)
-# RED_DOT = "\033[31m●\033[0m"
-# GREEN_DOT = "\033[32m●\033[0m"
-GRIPPER_GUARD_EFFORT = 0.25
-GRIPPER_GUARD_VEL = 0.6
-GRIPPER_REOPEN_STEP = 0.01
 
 _ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml"
 _COLLISION = yaml.safe_load(_ARMS_CONFIG_PATH.read_text())["collision"]
@@ -73,20 +66,8 @@ class BiYamsFollower(Robot):
     @property
     def _motors_ft(self) -> dict[str, type]:
         return {
-            **{f"left_{motor}.pos": float for motor in self.left_arm.config.joint_names},
-            **{f"left_{motor}.eff": float for motor in self.left_arm.config.joint_names},
-            "left_gripper.vel": float,
-            **{f"right_{motor}.pos": float for motor in self.right_arm.config.joint_names},
-            **{f"right_{motor}.eff": float for motor in self.right_arm.config.joint_names},
-            "right_gripper.vel": float,
-        }
-
-    @property
-    def _action_ft(self) -> dict[str, type]:
-        return {
-            **{f"left_{motor}.pos": float for motor in self.left_arm.config.joint_names},
-            **{f"right_{motor}.pos": float for motor in self.right_arm.config.joint_names},
-        }
+            f"left_{motor}.pos": float for motor in self.left_arm.config.joint_names
+        } | {f"right_{motor}.pos": float for motor in self.right_arm.config.joint_names}
 
     @property
     def _cameras_ft(self) -> dict[str, tuple]:
@@ -101,7 +82,7 @@ class BiYamsFollower(Robot):
 
     @cached_property
     def action_features(self) -> dict[str, type]:
-        return self._action_ft
+        return self._motors_ft
 
     @property
     def is_connected(self) -> bool:
@@ -123,7 +104,7 @@ class BiYamsFollower(Robot):
         return True
 
     def calibrate(self) -> None:
-        return
+        pass
 
     def configure(self) -> None:
         self.left_arm.configure()

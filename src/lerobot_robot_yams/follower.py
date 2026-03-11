@@ -2,7 +2,6 @@ import logging
 import time
 from dataclasses import dataclass, field
 from functools import cached_property
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -24,8 +23,6 @@ class YamsFollowerConfig(RobotConfig):
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
     gripper: str = "linear_3507"
     side: str = "right"
-    effort_calibration_path: str | None = None
-    effort_calibration_duration_s: float = 1.0
     joint_names: list[str] = field(
         default_factory=lambda: [
             "joint_1",
@@ -50,12 +47,6 @@ class YamsFollower(Robot):
 
     @property
     def _motors_ft(self) -> dict[str, type]:
-        return {
-            **{f"{joint_name}.pos": float for joint_name in self.config.joint_names},
-        }
-
-    @property
-    def _action_ft(self) -> dict[str, type]:
         return {f"{joint_name}.pos": float for joint_name in self.config.joint_names}
 
     @property
@@ -71,7 +62,7 @@ class YamsFollower(Robot):
 
     @cached_property
     def action_features(self) -> dict[str, type]:
-        return self._action_ft
+        return self._motors_ft
 
     @property
     def is_connected(self) -> bool:
