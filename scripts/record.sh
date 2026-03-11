@@ -10,6 +10,8 @@ if $LOG; then
     exec > >(tee "$LOGFILE") 2>&1
 fi
 
+pgrep -f /home/ethrc/Code/yams-robot-server | grep -vx "$$" | xargs -r kill
+
 YAML=configs/arms.yaml
 REPO=ETHRC/act
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
@@ -26,7 +28,7 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # fi
 rm -rf /home/ethrc/.cache/huggingface/lerobot/ETHRC/act
 
-uv run lerobot-record \
+uv run python -m cProfile -o /tmp/lerobot-record.prof -m lerobot.scripts.lerobot_record \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
     --teleop.left_arm_port="$LEFT_PORT" \
