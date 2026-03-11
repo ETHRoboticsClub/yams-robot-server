@@ -72,7 +72,7 @@ class YoloPinocchioPolicy:
         # 5. Ray-Plane Intersection with Table
         cam_pos_robot = np.array([self.OFFSET_X, self.OFFSET_Y, self.OFFSET_Z])
         t = (self.TABLE_Z - cam_pos_robot[2]) / ray_robot[2]
-        
+        s
         target_point = cam_pos_robot + t * ray_robot
         return float(target_point[0]), float(target_point[1]), self.TABLE_Z
         
