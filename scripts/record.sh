@@ -30,8 +30,10 @@ uv run lerobot-record \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub=false \
-    --resume=false\
-
+    --resume=false \
+    # --dataset.streaming_encoding=true \
+    # --dataset.vcodec=auto \
+    # --dataset.encoder_threads=2
 
 
     # --dataset.streaming_encoding=true \
