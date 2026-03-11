@@ -1,5 +1,4 @@
 import logging
-import multiprocessing as mp
 import time
 from dataclasses import dataclass, field
 from functools import cached_property
@@ -7,13 +6,13 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import portal
 import yaml
 from lerobot.cameras import CameraConfig, make_cameras_from_configs
 from lerobot.robots import Robot, RobotConfig
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 
-from lerobot_robot_yams.robot_core.yams_server import run_robot_server
+from i2rt.robots.get_robot import get_yam_robot
+from i2rt.robots.utils import GripperType
 
 logger = logging.getLogger(__name__)
 CALIBRATION_DIR = Path(__file__).resolve().parent / "calibration"
@@ -50,7 +49,6 @@ class YamsFollower(Robot):
     def __init__(self, config: YamsFollowerConfig):
         super().__init__(config)
         self.config = config
-        self._client = None
         self.cameras = make_cameras_from_configs(config.cameras)
         self._effort_offsets = self._load_effort_offsets()
         self.last_calibration_max_effort: float | None = None
@@ -109,24 +107,11 @@ class YamsFollower(Robot):
 
     @property
     def is_connected(self) -> bool:
-        return (
-            self._client is not None
-            and self._client.get_robot_info().result() is not None
-            and all(cam.is_connected for cam in self.cameras.values())
-        )
+        return ( all(cam.is_connected for cam in self.cameras.values()))
 
     def connect(self) -> None:
-        if self.is_connected:
-            raise DeviceAlreadyConnectedError(f"{self} already connected")
-
-        ctx = mp.get_context("spawn")
-        self._robot_process = ctx.Process(
-            target=run_robot_server,
-            args=(self.config,),
-        )
-        self._robot_process.start()
-
-        self._client = portal.Client(f"localhost:{self.config.server_port}")
+        gripper_type = GripperType.from_string_name(self.config.gripper)
+        self.robot = get_yam_robot(channel=self.config.can_port, gripper_type=gripper_type)
 
         for cam in self.cameras.values():
             cam.connect()
@@ -174,7 +159,7 @@ class YamsFollower(Robot):
         self.start_effort_calibration()
         deadline = self._effort_calibration_t0 + self.config.effort_calibration_duration_s
         while time.perf_counter() < deadline:
-            obs = self._client.get_observations().result()  # type: ignore
+            obs = self.robot.get_observations()
             self._effort_calibration_samples.append(np.asarray(obs["joint_eff"], dtype=float))
             time.sleep(0.01)
         self._finish_effort_calibration()
@@ -190,7 +175,7 @@ class YamsFollower(Robot):
         start = time.perf_counter()
 
         obs_dict = {}
-        obs = self._client.get_observations().result()  # type: ignore
+        obs = self.robot.get_observations()
         joint_pos = np.concatenate([obs["joint_pos"], obs.get("gripper_pos", np.array([]))])
         joint_vel = obs["joint_vel"]
         joint_eff = obs["joint_eff"]
@@ -225,7 +210,7 @@ class YamsFollower(Robot):
         goal_pos = np.array(
             [action[f"{joint_name}.pos"] for joint_name in self.config.joint_names]
         )
-        self._client.command_joint_pos(goal_pos)  # type: ignore
+        self.robot.command_joint_pos(goal_pos)
 
         return action
 
@@ -237,10 +222,6 @@ class YamsFollower(Robot):
 
         zero_pos = {f"{n}.pos": 0.0 for n in self.config.joint_names}
         slow_move(self, zero_pos, duration=2.0)
-
-        self._client.close()
-        self._robot_process.terminate()
-        self._robot_process.join()
 
         for cam in self.cameras.values():
             cam.disconnect()

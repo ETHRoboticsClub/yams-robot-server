@@ -96,6 +96,11 @@ def check_action(
         return True
 
     if last_joint_angles is not None and np.any(np.abs(joint_angles - last_joint_angles) > max_joint_step):
+        diffs = joint_angles - last_joint_angles
+        exceeded = np.abs(diffs) > max_joint_step
+        for i, (prev_a, new_a, diff) in enumerate(zip(last_joint_angles, joint_angles, diffs)):
+            if exceeded[i]:
+                print(f"[Joint Step Warning] Joint {i}: prev={prev_a:.4f}, new={new_a:.4f}, Δ={diff:.4f} (limit={max_joint_step:.4f})")
         return True
 
     positions, T_tip = arm_fk(joint_angles)

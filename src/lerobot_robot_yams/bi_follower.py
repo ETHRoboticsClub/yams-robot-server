@@ -15,11 +15,11 @@ from lerobot.robots import Robot, RobotConfig
 
 from lerobot_robot_yams.follower import YamsFollower, YamsFollowerConfig
 from lerobot_robot_yams.forward_kinematics import check_action
-from utils.terminal_status import TerminalStatus
+# from utils.terminal_status import TerminalStatus
 
 logger = logging.getLogger(__name__)
-RED_DOT = "\033[31m●\033[0m"
-GREEN_DOT = "\033[32m●\033[0m"
+# RED_DOT = "\033[31m●\033[0m"
+# GREEN_DOT = "\033[32m●\033[0m"
 GRIPPER_GUARD_EFFORT = 0.25
 GRIPPER_GUARD_VEL = 0.6
 GRIPPER_REOPEN_STEP = 0.01
@@ -69,7 +69,7 @@ class BiYamsFollower(Robot):
         self.left_arm = YamsFollower(left_arm_config)
         self.right_arm = YamsFollower(right_arm_config)
         self._last_angles: dict[str, np.ndarray | None] = {"left": None, "right": None}
-        self._status = TerminalStatus(interval=0.2)
+        # self._status = TerminalStatus(interval=0.2)
         self._eff_history = {"left": deque(), "right": deque()}
         self._eff_max = {"left": 0.0, "right": 0.0}
         self._eff_dt = deque(maxlen=100)
@@ -147,8 +147,8 @@ class BiYamsFollower(Robot):
         history = deque()
         deadline = time.perf_counter() + timeout_s
         while time.perf_counter() < deadline:
-            left_obs = self.left_arm._client.get_observations().result()  # type: ignore
-            right_obs = self.right_arm._client.get_observations().result()  # type: ignore
+            left_obs = self.left_arm.robot.get_observations()  # type: ignore
+            right_obs = self.right_arm.robot.get_observations()  # type: ignore
             now = time.perf_counter()
             pos = np.concatenate([
                 left_obs["joint_pos"],
@@ -222,17 +222,18 @@ class BiYamsFollower(Robot):
             "pos": right_obs["gripper.pos"],
         }
         self._update_effort_max(left_obs["gripper.eff"], right_obs["gripper.eff"])
-        self._status.update(
-            "gripper.eff"
-            f"  left={left_obs['gripper.eff']:7.2f}"
-            f"  qvel={left_obs['gripper.vel']:7.3f}"
-            f"  right={right_obs['gripper.eff']:7.2f}"
-            f"  qvel={right_obs['gripper.vel']:7.3f}"
-            f"  max left={self._eff_max['left']:7.2f}"
-            f"  right={self._eff_max['right']:7.2f}"
-            f"  {RED_DOT if self._gripper_hold['left']['active'] else GREEN_DOT}"
-            f"  {RED_DOT if self._gripper_hold['right']['active'] else GREEN_DOT}"
-        )
+        # self._status.update(
+        #     "gripper.eff"
+        #     f"  left={left_obs['gripper.eff']:7.2f}"
+        #     f"  qvel={left_obs['gripper.vel']:7.3f}"
+        #     f"  right={right_obs['gripper.eff']:7.2f}"
+        #     f"  qvel={right_obs['gripper.vel']:7.3f}"
+        #     f"  max left={self._eff_max['left']:7.2f}"
+        #     f"  right={self._eff_max['right']:7.2f}"
+        #     f"  {RED_DOT if self._gripper_hold['left']['active'] else GREEN_DOT}"
+        #     f"  {RED_DOT if self._gripper_hold['right']['active'] else GREEN_DOT}"
+        # )
+        # print(f"gripper.eff left={left_obs['gripper.eff']:.2f} right={right_obs['gripper.eff']:.2f}", flush=True)
         
         if with_cameras:
             for cam_key, cam in self.cameras.items():
@@ -283,7 +284,7 @@ class BiYamsFollower(Robot):
         return {**prefixed_send_action_left, **prefixed_send_action_right}
 
     def disconnect(self):
-        self._status.close()
+        # self._status.close()
         with ThreadPoolExecutor(max_workers=2) as ex:
             ex.submit(self.left_arm.disconnect)
             ex.submit(self.right_arm.disconnect)

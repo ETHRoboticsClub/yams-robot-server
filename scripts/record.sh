@@ -1,6 +1,6 @@
 echo "working directory $PWD"
 YAML=configs/arms.yaml
-REPO=ETHRC/fake4
+REPO=ETHRC/act
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
@@ -25,12 +25,12 @@ uv run lerobot-record \
     --dataset.fps=60 \
     --dataset.num_episodes=1 \
     --dataset.episode_time_s=120 \
-    --dataset.reset_time_s=2 \
+    --dataset.reset_time_s=3 \
     --dataset.single_task="Fold the towel." \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub=false \
-    --resume=true \
+    --resume=false\
 
 
 
