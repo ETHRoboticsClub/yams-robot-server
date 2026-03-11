@@ -4,7 +4,7 @@ run_history
 ZED_Diagnostic_Results.json
 trajectories
 *.prof
-*/calibration/*effort*.yaml
+**/calibration/*effort*.yaml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
