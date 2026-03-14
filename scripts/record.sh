@@ -13,7 +13,7 @@ fi
 pgrep -f /home/ethrc/Code/yams-robot-server | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=ETHRC/towel_spring26
+REPO=ETHRC/towelspring26
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
@@ -26,7 +26,7 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # if [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ] && [ ! -f "$HOME/.cache/huggingface/lerobot/$REPO/meta/info.json" ]; then
 #     mv "$HOME/.cache/huggingface/lerobot/$REPO" "$HOME/.cache/huggingface/lerobot/$REPO.stale.$(date +%s)"
 # fi
-# rm -rf /home/ethrc/.cache/huggingface/lerobot/ETHRC/act
+# rm -rf /home/ethrc/.cache/huggingface/lerobot/$REPO
 
 uv run lerobot-record \
     --robot.type=bi_yams_follower \
@@ -35,9 +35,9 @@ uv run lerobot-record \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
     --dataset.fps=50 \
-    --dataset.num_episodes=1 \
+    --dataset.num_episodes=100 \
     --dataset.episode_time_s=120 \
-    --dataset.reset_time_s=10 \
+    --dataset.reset_time_s=0 \
     --dataset.single_task="Fold the towel." \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
