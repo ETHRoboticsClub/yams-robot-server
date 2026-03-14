@@ -48,6 +48,7 @@ class YamsFollower(Robot):
         self.config = config
         self._client = None
         self.cameras = make_cameras_from_configs(config.cameras)
+        self.connected_once = False
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -70,11 +71,19 @@ class YamsFollower(Robot):
 
     @property
     def is_connected(self) -> bool:
-        return (
-            self._client is not None
-            and self._client.get_robot_info().result() is not None
-            and all(cam.is_connected for cam in self.cameras.values())
-        )
+        
+        
+        if self.connected_once:
+            return True
+        else:
+            connected = (
+                self._client is not None
+                and self._client.get_robot_info().result() is not None
+                and all(cam.is_connected for cam in self.cameras.values())
+            )
+            if connected:
+                self.connected_once = True
+            return connected
 
     def connect(self) -> None:
         if self.is_connected:
