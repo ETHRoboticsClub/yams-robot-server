@@ -89,10 +89,6 @@ def run_loop(bi_follower, bi_leader, plotter, trajectory, collecting, report_hz=
                 obs = dict(latest_obs)
             
             bi_follower.send_action(bi_leader_action)
-            if obs:
-                bi_leader.send_feedback(
-                    {k: v for k, v in obs.items() if k.endswith("gripper.eff")}
-                )
 
             iters += 1
             deadline += 1 / HZ

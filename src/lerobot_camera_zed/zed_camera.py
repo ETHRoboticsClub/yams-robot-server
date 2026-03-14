@@ -31,7 +31,7 @@ class ZEDCamera(Camera):
         self.thread: Thread | None = None
         self.stop_event: Event | None = None
         self.frame_lock: Lock = Lock()
-        self.latest_frame: NDArray[Any] | None = None
+        self.latest_frame: NDArray[Any] = np.zeros([self.config.height, self.config.width, 3], np.uint8)
         self.new_frame_event: Event = Event()
 
         self.rotation: int | None = get_cv2_rotation(config.rotation)
@@ -44,7 +44,7 @@ class ZEDCamera(Camera):
             ]:
                 self.capture_width, self.capture_height = self.height, self.width
         if config.cached_frames:
-            logger.info('Running Zed cam in cashed mode')
+            logger.info('Running Zed cam in cached mode')
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}({self.camera_id})"
