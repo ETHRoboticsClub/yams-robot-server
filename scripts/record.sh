@@ -13,7 +13,7 @@ fi
 pgrep -f /home/ethrc/Code/yams-robot-server | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=ETHRC/act
+REPO=ETHRC/towel_spring26
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
@@ -35,17 +35,17 @@ uv run lerobot-record \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
     --dataset.fps=50 \
-    --dataset.num_episodes=5 \
+    --dataset.num_episodes=1 \
     --dataset.episode_time_s=120 \
     --dataset.reset_time_s=10 \
     --dataset.single_task="Fold the towel." \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
-    --dataset.push_to_hub=false \
     --resume=true \
     --robot.cameras="$cameras" \
     --dataset.vcodec="auto" \
     --dataset.streaming_encoding=true
+    # --dataset.push_to_hub=true \
     # --dataset.encoder_queue_maxsize=1000
     # --dataset.encoder_threads=2
     # --dataset.vcodec=libx264 \
