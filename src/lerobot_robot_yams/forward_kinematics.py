@@ -86,31 +86,30 @@ def check_action(
     ground_z: float,
     end_effector_length: float,
     max_joint_step: np.ndarray,
-) -> bool:
-    """Return True (rejected) if:
+) -> tuple[bool, str | None]:
+    """Return (rejected, reason) if:
     - joint1 (base rotation) exceeds ±90°,
     - any joint moves more than max_joint_step from last_joint_angles, or
     - any link or the last-link volume is below ground_z.
     """
     if abs(joint_angles[0]) > np.pi / 2:
-        return True
+        return True, "joint1 exceeds +/-90deg"
 
     if last_joint_angles is not None and np.any(np.abs(joint_angles - last_joint_angles) > max_joint_step):
         diffs = joint_angles - last_joint_angles
         exceeded = np.abs(diffs) > max_joint_step
         for i, (prev_a, new_a, diff) in enumerate(zip(last_joint_angles, joint_angles, diffs)):
             if exceeded[i]:
-                print(f"[Joint Step Warning] Joint {i}: prev={prev_a:.4f}, new={new_a:.4f}, Δ={diff:.4f} (limit={max_joint_step:.4f})")
-        return True
+                return True, f"joint {i} step {diff:.4f} exceeds limit {max_joint_step[i]:.4f} (prev={prev_a:.4f}, new={new_a:.4f})"
 
     positions, T_tip = arm_fk(joint_angles)
 
     if any(pos[2] < ground_z for pos in positions[1:]):
-        return True
+        return True, "link goes below ground"
 
     local_z_world = T_tip[:3, 2]
     for t in np.linspace(0, end_effector_length, 10):
         if (positions[-1] + t * local_z_world)[2] < ground_z:
-            return True
+            return True, "end effector goes below ground"
 
-    return False
+    return False, None

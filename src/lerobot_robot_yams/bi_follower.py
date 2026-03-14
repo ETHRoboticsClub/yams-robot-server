@@ -145,8 +145,15 @@ class BiYamsFollower(Robot):
         joint_names_6 = self.left_arm.config.joint_names[:6]
         for side, arm_action in [("left", left_action), ("right", right_action)]:
             angles = np.array([arm_action[f"{j}.pos"] for j in joint_names_6])
-            if check_action(angles, self._last_angles[side], self.config.ground_z, self.config.end_effector_length, self.config.max_joint_step):
-                logger.warning(f"{side} arm action rejected")
+            rejected, reason = check_action(
+                angles,
+                self._last_angles[side],
+                self.config.ground_z,
+                self.config.end_effector_length,
+                self.config.max_joint_step,
+            )
+            if rejected:
+                logger.warning(f"{side} arm action rejected: {reason}")
                 return self.get_observation(with_cameras=False)
             self._last_angles[side] = angles
 
