@@ -26,7 +26,7 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # if [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ] && [ ! -f "$HOME/.cache/huggingface/lerobot/$REPO/meta/info.json" ]; then
 #     mv "$HOME/.cache/huggingface/lerobot/$REPO" "$HOME/.cache/huggingface/lerobot/$REPO.stale.$(date +%s)"
 # fi
-rm -rf /home/ethrc/.cache/huggingface/lerobot/ETHRC/act
+# rm -rf /home/ethrc/.cache/huggingface/lerobot/ETHRC/act
 
 uv run lerobot-record \
     --robot.type=bi_yams_follower \
@@ -37,14 +37,15 @@ uv run lerobot-record \
     --dataset.fps=50 \
     --dataset.num_episodes=5 \
     --dataset.episode_time_s=120 \
-    --dataset.reset_time_s=5 \
+    --dataset.reset_time_s=10 \
     --dataset.single_task="Fold the towel." \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub=false \
-    --resume=false \
+    --resume=true \
     --robot.cameras="$cameras" \
     --dataset.vcodec="auto" \
     --dataset.streaming_encoding=true
+    # --dataset.encoder_queue_maxsize=1000
     # --dataset.encoder_threads=2
     # --dataset.vcodec=libx264 \
