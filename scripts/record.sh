@@ -28,7 +28,7 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # fi
 rm -rf /home/ethrc/.cache/huggingface/lerobot/ETHRC/act
 
-uv run python -m cProfile -o /tmp/lerobot-record.prof -m lerobot.scripts.lerobot_record \
+YAMS_SERVER_PROFILE=1 uv run python -m cProfile -o /tmp/lerobot-record.prof -m lerobot.scripts.lerobot_record \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
     --teleop.left_arm_port="$LEFT_PORT" \
@@ -42,8 +42,8 @@ uv run python -m cProfile -o /tmp/lerobot-record.prof -m lerobot.scripts.lerobot
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub=false \
-    --resume=false \
-    --robot.cameras="$cameras" \
-    --dataset.streaming_encoding=true \
+    --resume=false 
+    # --robot.cameras="$cameras" \
+    # --dataset.streaming_encoding=true 
     # --dataset.encoder_threads=2
     # --dataset.vcodec=libx264 \

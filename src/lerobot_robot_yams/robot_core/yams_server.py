@@ -1,4 +1,8 @@
+import atexit
+import cProfile
+import os
 import signal
+from pathlib import Path
 
 import portal
 from i2rt.robots.get_robot import get_yam_robot
@@ -12,6 +16,27 @@ def run_robot_server(config) -> None:
     robot = get_yam_robot(channel=config.can_port, gripper_type=gripper_type)
 
     server = YamsServer(robot, config.server_port)
+    if os.getenv("YAMS_SERVER_PROFILE"):
+        prof = cProfile.Profile()
+        prof.enable()
+        prof_path = Path(f"/tmp/yams-server-{config.server_port}.prof")
+        dumped = False
+
+        def dump_profile() -> None:
+            nonlocal dumped
+            if dumped:
+                return
+            dumped = True
+            prof.disable()
+            prof.dump_stats(prof_path)
+            print(f"Saved YAMS server profile to {prof_path}")
+
+        def handle_sigterm(_signum, _frame) -> None:
+            dump_profile()
+            raise SystemExit(0)
+
+        atexit.register(dump_profile)
+        signal.signal(signal.SIGTERM, handle_sigterm)
     server.serve()
 
 
