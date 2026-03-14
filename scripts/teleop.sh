@@ -16,7 +16,7 @@ uv run lerobot-teleoperate \
     --teleop.type=bi_yams_leader \
     --teleop.left_arm_port="$LEFT_PORT" \
     --teleop.right_arm_port="$RIGHT_PORT" \
-    --display_data=true \
+    --display_data=false \
     --fps=250 \
     --robot.cameras="$cameras" 
 set +x
