@@ -143,7 +143,7 @@ class YamsLeader(Teleoperator):
 
         try:
             raw_positions = self.bus.sync_read(
-                normalize=False, data_name="Present_Position"
+                normalize=False, data_name="Present_Position", num_retry=3
             )
         except Exception as e:
             print(f"Error reading from {self}: {e}")
