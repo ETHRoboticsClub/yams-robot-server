@@ -28,23 +28,22 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # fi
 rm -rf /home/ethrc/.cache/huggingface/lerobot/ETHRC/act
 
-uv run lerobot-record \
+YAMS_SERVER_PROFILE=1 uv run python -m cProfile -o /tmp/lerobot-record.prof -m lerobot.scripts.lerobot_record \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
     --teleop.left_arm_port="$LEFT_PORT" \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --display_data=false \
-    --dataset.fps=50 \
-    --dataset.num_episodes=5 \
+    --dataset.fps=60 \
+    --dataset.num_episodes=1 \
     --dataset.episode_time_s=120 \
-    --dataset.reset_time_s=5 \
+    --dataset.reset_time_s=3 \
     --dataset.single_task="Fold the towel." \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub=false \
     --resume=false \
-    --robot.cameras="$cameras" \
-    --dataset.vcodec="auto" \
-    --dataset.streaming_encoding=true
+    --robot.cameras="$cameras" 
+    # --dataset.streaming_encoding=true 
     # --dataset.encoder_threads=2
     # --dataset.vcodec=libx264 \
