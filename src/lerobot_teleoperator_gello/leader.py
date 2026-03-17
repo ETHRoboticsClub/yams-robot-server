@@ -143,7 +143,7 @@ class YamsLeader(Teleoperator):
 
         try:
             raw_positions = self.bus.sync_read(
-                normalize=False, data_name="Present_Position", num_retry=3
+                normalize=False, data_name="Present_Position"
             )
         except Exception as e:
             print(f"Error reading from {self}: {e}")
@@ -176,6 +176,7 @@ class YamsLeader(Teleoperator):
         return action
 
     def send_feedback(self, feedback: dict[str, float]) -> None:
+        # TODO(rcadene, aliberts): Implement force feedback
         raise NotImplementedError
 
     def disconnect(self) -> None:
