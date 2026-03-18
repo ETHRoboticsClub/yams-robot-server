@@ -9,7 +9,7 @@ requires-python = "==3.12.*"
 dependencies = [
     "lerobot>=0.4.0",
     "opencv-python",
-    "pyzed",
+    "pyzed; sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 
 [tool.uv.sources]

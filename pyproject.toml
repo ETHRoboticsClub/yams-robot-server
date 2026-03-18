@@ -15,7 +15,7 @@ dependencies = [
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
-    "pyzed",
+    "pyzed; sys_platform == 'linux' and platform_machine == 'x86_64'",
     "lerobot_robot_yams",
     "lerobot_teleoperator_gello",
     "lerobot_camera_zed",
@@ -29,6 +29,12 @@ lerobot_robot_yams = { path = "src/lerobot_robot_yams", editable = true }
 lerobot_teleoperator_gello = { path = "src/lerobot_teleoperator_gello", editable = true }
 lerobot_camera_zed = { path = "src/lerobot_camera_zed", editable = true }
 lerobot_camera_cached = { path = "src/lerobot_camera_cached", editable = true }
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
 
 [tool.hatch.metadata]
 allow-direct-references = true

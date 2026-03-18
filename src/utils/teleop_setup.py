@@ -3,7 +3,7 @@ from pathlib import Path
 import yaml
 from lerobot.cameras.opencv import OpenCVCameraConfig
 
-from lerobot_camera_zed.zed_camera import ZEDCamera, ZEDCameraConfig
+from lerobot_camera_zed.zed_config import ZEDCameraConfig
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
 from lerobot.cameras.configs import Cv2Rotation
@@ -32,6 +32,8 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     if args.skip_cams:
         logger.info("Skipping camera setup (--skip-cams enabled)")
     else:
+        from lerobot_camera_zed.zed_camera import ZEDCamera
+
         available_zed_cameras = ZEDCamera.find_cameras()
         logger.info("Detected ZED cameras: %s", available_zed_cameras)
         if not available_zed_cameras:
