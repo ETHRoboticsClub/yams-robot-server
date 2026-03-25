@@ -137,14 +137,14 @@ cameras:
   configs:
     left_wrist:
       type: opencv-cached
-      index_or_path: 0
+      index_or_path: 2
       fps: 30
       width: 640
       height: 480
       fourcc: MJPG
     right_wrist:
       type: opencv-cached
-      index_or_path: 2
+      index_or_path: 0
       fps: 30
       width: 640
       height: 480
