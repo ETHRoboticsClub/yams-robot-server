@@ -9,11 +9,14 @@ requires-python = "==3.12.*"
 dependencies = [
     "lerobot>=0.4.0",
     "opencv-python",
-    "pyzed; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "pyzed==5.1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
 ]
 
 [tool.uv.sources]
-pyzed = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl" }
+pyzed = [
+    { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+    { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_aarch64/pyzed-5.1-cp312-cp312-linux_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
