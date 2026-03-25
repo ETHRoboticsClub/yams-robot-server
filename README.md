@@ -76,6 +76,9 @@ Set up USBs with `sudo .venv/bin/python scripts/setup_leader_ports.py` -->
 - Precisely place the follower arms in the zero position for calibration.
 - Turn on power and calibrate follower arms with `uv run scripts/compute_offsets.py`.
 - Identify the correct camera ids by running `uv run lerobot-find-cameras`. Make sure mapping is correct in `arms.yaml` in the `index_or_path` field. You can find their images in `outputs/captured_images/`.
+- DO THIS FOR WRIST CAMERAS, NOT ZED CAMERA: `./scripts/set_camera_profile.sh /dev/video<ID>`
+- Run `uv run lerobot-find-cameras` again, check outputs to make sure they look normal.
+- Make sure the cameras are focused.
 <!-- - Place the leader arms in a nominal (safe) position. The follower arms will move to match the leader's initial positions. -->
 <!-- - Ensure correct mapping of each leader arm to its USB port. **If they are swapped arms behave erratically and damage themselves. They may switch when swapping around USB ports.** -->
   <!-- - Check port mapping with ls `/dev/ttyACM*` -->
