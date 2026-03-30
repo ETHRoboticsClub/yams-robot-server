@@ -69,12 +69,13 @@ Set up USBs with `sudo .venv/bin/python scripts/setup_leader_ports.py` -->
 ## Setup (Important)
 
 > **Important:** Read this before running any teleoperation or recording commands.
+- Turn on both power strips. Follower fans should start making noise.
 - List followers (CAN) with `ip link show`. Make sure both are connected.
-  - Reset CAN busses: `sudo sh third_party/i2rt/scripts/reset_all_can.sh`.
-- Set up USBs with `sudo .venv/bin/python scripts/setup_leader_ports.py`. Check that t
+  - If you need, reset CAN busses with this: `sudo sh third_party/i2rt/scripts/reset_all_can.sh`.
+- Set up leader USBs with `sudo .venv/bin/python scripts/setup_leader_ports.py`.
 - Precisely place the leader arms in the zero position for calibration.
 - Precisely place the follower arms in the zero position for calibration.
-- Turn on power and calibrate follower arms with `uv run scripts/compute_offsets.py`.
+- Calibrate follower arms with `uv run scripts/compute_offsets.py`.
 - Identify the correct camera ids by running `uv run lerobot-find-cameras`. Make sure mapping is correct in `arms.yaml` in the `index_or_path` field. You can find their images in `outputs/captured_images/`.
 - DO THIS FOR WRIST CAMERAS, NOT ZED CAMERA: `./scripts/set_camera_profile.sh /dev/video<ID>`
 - Run `uv run lerobot-find-cameras` again, check outputs to make sure they look normal.
