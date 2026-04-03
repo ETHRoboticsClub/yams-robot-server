@@ -1,9 +1,8 @@
 ## Quick Start
 
 ```bash
-git clone --recursive https://github.com/ETHRoboticsClub/yams-robot-server.git
+# Run from the repository root (this folder)
 git submodule update --init --recursive
-cd yams-robot-server
 ```
 
 ## Important teleop info
@@ -13,6 +12,7 @@ cd yams-robot-server
 1. **Install `uv` (if you don't have it):**
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
+   source $HOME/.local/bin/env
    ```
 
 2. **Install the project dependencies:**
@@ -20,13 +20,13 @@ cd yams-robot-server
    uv sync
    ```
 
-3. **ZED Camera Support: (instructions may be outdated)**  
+<!-- 3. **ZED Camera Support: (instructions may be outdated)**  
    1. Install the ZED SDK (Download script from https://www.stereolabs.com/en-fr/developers and run).
    Only version 5.1 works I think (not the most recent 5.2)
    2. Copy the .whl (Python wheel) file into `src/lerobot_camera_zed/pyzed/`, then run:
    ```bash
    uv sync
-   ```
+   ``` -->
 
 <!-- ## Usage
 

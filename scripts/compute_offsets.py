@@ -8,6 +8,15 @@ from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 ARMS_CONFIG_PATH = Path(__file__).resolve().parents[1] / "configs" / "arms.yaml"
 
 
+def load_leader_ports() -> dict[str, str]:
+    with open(ARMS_CONFIG_PATH, "r") as f:
+        leader_cfg = yaml.safe_load(f)["leader"]
+    return {
+        "left": leader_cfg["left_arm"]["port"],
+        "right": leader_cfg["right_arm"]["port"],
+    }
+
+
 def load_scales(arm: str) -> dict:
     with open(ARMS_CONFIG_PATH, "r") as f:
         motors = yaml.safe_load(f)["leader"][f"{arm}_arm"]["motors"]
@@ -75,7 +84,7 @@ def main():
     )
     args = parser.parse_args()
 
-    port_by_arm = {"left": "/dev/ttyUSB0", "right": "/dev/ttyUSB1"}
+    port_by_arm = load_leader_ports()
     arms = [args.arm] if args.arm else ["left", "right"]
 
     for arm in arms:

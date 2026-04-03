@@ -45,13 +45,41 @@ class OpenCVCameraCached(OpenCVCamera):
         if self.thread is None or not self.thread.is_alive():
             raise RuntimeError(f"{self} read thread is not running.")
 
-        if not self.new_frame_event.wait(timeout=timeout_ms / 1000.0):
-            raise TimeoutError(
-                f"Timed out waiting for frame from camera {self} after {timeout_ms} ms. "
-                f"Read thread alive: {self.thread.is_alive()}."
-            )
-        frame = self.latest_frame
-        return frame
+        timeout_s = timeout_ms / 1000.0
+        for _ in range(3):
+            if self.new_frame_event.wait(timeout=timeout_s):
+                frame = self.latest_frame
+                if frame is not None:
+                    self.last_frame = frame
+                    return frame
+
+            # Keep teleop alive on transient camera hiccups once we have a frame.
+            if self.latest_frame is not None:
+                return self.latest_frame
+
+        raise TimeoutError(
+            f"Timed out waiting for frame from camera {self} after {timeout_ms} ms. "
+            f"Read thread alive: {self.thread.is_alive()}."
+        )
+
+    def connect(self, warmup: bool = True) -> None:
+        last_error: Exception | None = None
+        for attempt in range(3):
+            try:
+                super().connect(warmup=warmup)
+                return
+            except Exception as e:
+                last_error = e
+                logger.warning(f"{self} connect attempt {attempt + 1}/3 failed: {e}")
+                try:
+                    self.disconnect()
+                except Exception:
+                    pass
+                time.sleep(0.2)
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError(f"{self} failed to connect.")
 
 
 if __name__ == "__main__":

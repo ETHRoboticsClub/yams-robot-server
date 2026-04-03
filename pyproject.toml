@@ -20,6 +20,7 @@ dependencies = [
     "lerobot_teleoperator_gello",
     "lerobot_camera_zed",
     "lerobot_camera_cached",
+    "pyrealsense2>=2.57.7.10387",
 ]
 
 [tool.uv.sources]

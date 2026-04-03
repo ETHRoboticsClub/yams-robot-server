@@ -5,6 +5,7 @@ collision:
 
 follower:
   left_arm:
+    can_port: can1
     server_port: 11333
     motors:
       joint_1:
@@ -22,6 +23,7 @@ follower:
       gripper:
         label: Gripper
   right_arm:
+    can_port: can0
     server_port: 11334
     motors:
       joint_1:
@@ -137,22 +139,24 @@ cameras:
   configs:
     left_wrist:
       type: opencv-cached
-      index_or_path: 2
+      index_or_path: /dev/v4l/by-path/pci-0000:09:00.0-usb-0:6:1.0-video-index0
       fps: 30
       width: 640
       height: 480
       fourcc: MJPG
     right_wrist:
       type: opencv-cached
-      index_or_path: 0
+      index_or_path: /dev/v4l/by-path/pci-0000:0c:00.0-usb-0:1:1.0-video-index0
       fps: 30
       width: 640
       height: 480
       fourcc: MJPG
     topdown:
-      type: zed
+      type: opencv-cached
+      index_or_path: /dev/v4l/by-path/pci-0000:09:00.0-usb-0:1:1.3-video-index0
+      warmup_s: 3
       fps: 30
       width: 640
       height: 480
-      rotation: NO_ROTATION
-      cached_frames: true
+      fourcc: YUYV
+
