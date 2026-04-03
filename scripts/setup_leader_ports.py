@@ -63,9 +63,10 @@ def infer_second_device(
     for device, properties in sorted(devices_with_properties.items()):
         if device == first_device:
             continue
-        if serial_for(properties) == first_serial:
+        device_serial = serial_for(properties)
+        if device_serial == first_serial:
             continue
-        if serial_for(properties):
+        if device_serial:
             candidates.append(device)
             if len(candidates) > 1:
                 return None
