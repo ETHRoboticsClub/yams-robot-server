@@ -171,12 +171,6 @@ def main():
         raise RuntimeError(f"Could not find ID_SERIAL_SHORT for {devices_by_side['right']}")
 
     serial_by_side = {"left": left_serial, "right": right_serial}
-    save_memo(
-        {
-            "left": memo_signature_for(left_properties),
-            "right": memo_signature_for(right_properties),
-        }
-    )
     rules = "\n".join(
         f'SUBSYSTEM=="tty", ATTRS{{serial}}=="{serial}", SYMLINK+="leader-{side}"'
         for side, serial in serial_by_side.items()
@@ -184,6 +178,12 @@ def main():
     RULES_PATH.write_text(rules + "\n")
     subprocess.run(["udevadm", "control", "--reload-rules"], check=True)
     subprocess.run(["udevadm", "trigger"], check=True)
+    save_memo(
+        {
+            "left": memo_signature_for(left_properties),
+            "right": memo_signature_for(right_properties),
+        }
+    )
     print(f"Wrote {RULES_PATH}")
     print("Replug both leader cables to get /dev/leader-left and /dev/leader-right.")
 
