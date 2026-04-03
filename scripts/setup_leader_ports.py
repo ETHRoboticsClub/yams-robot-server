@@ -90,7 +90,8 @@ def load_memo() -> dict[str, dict[str, str]] | None:
     try:
         data = json.loads(MEMO_PATH.read_text())
     except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Invalid memo file at {MEMO_PATH}: {exc}") from exc
+        print(f"Warning: invalid memo file at {MEMO_PATH}: {exc}. Falling back to detection flow.")
+        return None
     if isinstance(data, dict):
         return data
     return None
