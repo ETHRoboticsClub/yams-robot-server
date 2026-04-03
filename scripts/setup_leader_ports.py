@@ -77,7 +77,7 @@ def infer_second_device(
             candidates.append(device)
             if len(candidates) > 1:
                 return None
-    return candidates[0] if len(candidates) == 1 else None
+    return candidates[0] if candidates else None
 
 
 def scan_tty_properties() -> dict[str, dict[str, str]]:
@@ -87,7 +87,10 @@ def scan_tty_properties() -> dict[str, dict[str, str]]:
 def load_memo() -> dict[str, dict[str, str]] | None:
     if not MEMO_PATH.exists():
         return None
-    data = json.loads(MEMO_PATH.read_text())
+    try:
+        data = json.loads(MEMO_PATH.read_text())
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Invalid memo file at {MEMO_PATH}: {exc}") from exc
     if isinstance(data, dict):
         return data
     return None
@@ -147,7 +150,6 @@ def main():
         left_device = wait_for_new_device("left")
         left_properties = udev_properties_for(left_device)
         devices_with_properties = scan_tty_properties()
-        devices_with_properties[left_device] = left_properties
         right_device = None if args.force_manual else infer_second_device(
             left_device, left_properties, devices_with_properties
         )
