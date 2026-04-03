@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 RULES_PATH = Path("/etc/udev/rules.d/99-dynamixel-leaders.rules")
-DETECTION_TIMEOUT_S = 5 * 60
+DETECTION_TIMEOUT_SECONDS = 5 * 60
 SIGNATURE_KEYS = (
     "ID_VENDOR_ID",
     "ID_MODEL_ID",
@@ -19,7 +19,7 @@ def tty_devices() -> set[str]:
     return {path.name for path in Path("/dev").glob("ttyUSB*")}
 
 
-def wait_for_new_device(side: str, timeout_s: float = DETECTION_TIMEOUT_S) -> str:
+def wait_for_new_device(side: str, timeout_s: float = DETECTION_TIMEOUT_SECONDS) -> str:
     input(f"Unplug the {side} leader cable, then press Enter.")
     before = tty_devices()
     input(f"Plug in the {side} leader cable, then press Enter.")
@@ -31,7 +31,7 @@ def wait_for_new_device(side: str, timeout_s: float = DETECTION_TIMEOUT_S) -> st
             print(f"Detected {device} for {side}.")
             return device
         if time.monotonic() >= deadline:
-            raise TimeoutError(f"Timed out waiting for {side} leader after {int(timeout_s)} seconds.")
+            raise TimeoutError(f"Timed out waiting for {side} leader after {timeout_s:g} seconds.")
         time.sleep(0.2)
 
 
