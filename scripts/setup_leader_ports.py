@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 RULES_PATH = Path("/etc/udev/rules.d/99-dynamixel-leaders.rules")
-MEMO_PATH = Path("/etc/yams-leader-signatures.json")
+MEMO_PATH = Path(__file__).resolve().parents[1] / ".leader-signatures.json"
 DETECTION_TIMEOUT_SECONDS = 5 * 60
 SERIAL_KEY = "ID_SERIAL_SHORT"
 
