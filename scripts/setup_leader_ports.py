@@ -9,14 +9,7 @@ from pathlib import Path
 RULES_PATH = Path("/etc/udev/rules.d/99-dynamixel-leaders.rules")
 MEMO_PATH = Path("/etc/yams-leader-signatures.json")
 DETECTION_TIMEOUT_SECONDS = 5 * 60
-SIGNATURE_KEYS = (
-    "ID_VENDOR_ID",
-    "ID_MODEL_ID",
-    "ID_VENDOR",
-    "ID_MODEL",
-    "ID_USB_DRIVER",
-)
-MEMO_KEYS = ("ID_SERIAL_SHORT", *SIGNATURE_KEYS)
+SERIAL_KEY = "ID_SERIAL_SHORT"
 
 
 def tty_devices() -> set[str]:
@@ -52,12 +45,12 @@ def udev_properties_for(device: str) -> dict[str, str]:
     )
 
 
-def signature_for(properties: dict[str, str]) -> tuple[str, ...]:
-    return tuple(properties.get(key, "") for key in SIGNATURE_KEYS)
+def serial_for(properties: dict[str, str]) -> str:
+    return properties.get(SERIAL_KEY, "")
 
 
 def memo_signature_for(properties: dict[str, str]) -> dict[str, str]:
-    return {key: properties.get(key, "") for key in MEMO_KEYS}
+    return {SERIAL_KEY: serial_for(properties)}
 
 
 def infer_second_device(
@@ -66,14 +59,13 @@ def infer_second_device(
     devices_with_properties: dict[str, dict[str, str]],
 ) -> str | None:
     candidates = []
-    first_serial = first_properties.get("ID_SERIAL_SHORT")
-    first_signature = signature_for(first_properties)
+    first_serial = serial_for(first_properties)
     for device, properties in sorted(devices_with_properties.items()):
         if device == first_device:
             continue
-        if properties.get("ID_SERIAL_SHORT") == first_serial:
+        if serial_for(properties) == first_serial:
             continue
-        if signature_for(properties) == first_signature:
+        if serial_for(properties):
             candidates.append(device)
             if len(candidates) > 1:
                 return None
@@ -114,7 +106,7 @@ def find_devices_from_memo(
         matches = [
             device
             for device, properties in devices_with_properties.items()
-            if all(properties.get(key, "") == expected.get(key, "") for key in MEMO_KEYS)
+            if serial_for(properties) == expected.get(SERIAL_KEY, "")
         ]
         if len(matches) != 1 or matches[0] in used_devices:
             return None
@@ -161,14 +153,14 @@ def main():
         devices_by_side = {"left": left_device, "right": right_device}
 
     left_properties = udev_properties_for(devices_by_side["left"])
-    left_serial = left_properties.get("ID_SERIAL_SHORT")
+    left_serial = serial_for(left_properties)
     if not left_serial:
-        raise RuntimeError(f"Could not find ID_SERIAL_SHORT for {devices_by_side['left']}")
+        raise RuntimeError(f"Could not find {SERIAL_KEY} for {devices_by_side['left']}")
 
     right_properties = udev_properties_for(devices_by_side["right"])
-    right_serial = right_properties.get("ID_SERIAL_SHORT")
+    right_serial = serial_for(right_properties)
     if not right_serial:
-        raise RuntimeError(f"Could not find ID_SERIAL_SHORT for {devices_by_side['right']}")
+        raise RuntimeError(f"Could not find {SERIAL_KEY} for {devices_by_side['right']}")
 
     serial_by_side = {"left": left_serial, "right": right_serial}
     rules = "\n".join(
