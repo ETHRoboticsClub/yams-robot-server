@@ -70,7 +70,7 @@ def infer_second_device(
             candidates.append(device)
             if len(candidates) > 1:
                 return None
-    return candidates[0] if candidates else None
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def scan_tty_properties() -> dict[str, dict[str, str]]:
