@@ -6,7 +6,12 @@ LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 LEFT_CAN=$(yq '.follower.left_arm.can_port' "$YAML")
 RIGHT_CAN=$(yq '.follower.right_arm.can_port' "$YAML")
-cameras=$(yq -c '.cameras.configs' "$YAML")
+if yq -e '.cameras.configs' "$YAML" >/dev/null 2>&1; then
+    cameras=$(yq -c '.cameras.configs' "$YAML")
+else
+    echo "Warning: cameras.configs missing in $YAML; continuing without cameras." >&2
+    cameras="{}"
+fi
 PYTHONPATH=src uv run python -c "from utils.connection import _free_port; _free_port('$LEFT_PORT'); _free_port('$RIGHT_PORT')"
 sh third_party/i2rt/scripts/reset_all_can.sh
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer

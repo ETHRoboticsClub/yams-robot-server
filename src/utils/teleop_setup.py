@@ -2,14 +2,16 @@ from pathlib import Path
 
 import yaml
 from lerobot.cameras.opencv import OpenCVCameraConfig
+from lerobot.cameras.configs import Cv2Rotation
 
+from lerobot_camera_cached.cached_config import OpenCVCameraCachedConfig
 from lerobot_camera_zed.zed_config import ZEDCameraConfig
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
-from lerobot.cameras.configs import Cv2Rotation
 
 from utils.lifecycle import run_pre_setup
 from utils.live_joint_plot import LiveJointPlotter
+from utils.camera_memo import resolve_camera_configs
 from utils.teleop_data import build_joint_label_map
 
 
@@ -32,22 +34,37 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     if args.skip_cams:
         logger.info("Skipping camera setup (--skip-cams enabled)")
     else:
-        from lerobot_camera_zed.zed_camera import ZEDCamera
+        raw_camera_configs = arms_config.get("cameras", {}).get("configs", {})
+        if not raw_camera_configs:
+            logger.warning("No cameras configured in mapping yaml; continuing without cameras.")
+        else:
+            try:
+                resolved_camera_configs = resolve_camera_configs(raw_camera_configs, logger)
 
-        available_zed_cameras = ZEDCamera.find_cameras()
-        logger.info("Detected ZED cameras: %s", available_zed_cameras)
-        if not available_zed_cameras:
-            raise Exception("Zed camera not found (use --skip-cams to continue without cameras)")
-        zed_cam_id = available_zed_cameras[0]["id"]
-        logger.info("Using ZED camera id=%s", zed_cam_id)
-        cameras = {}
-        for name, cfg in arms_config.get("cameras", {}).get("configs", {}).items():
-            cfg = dict(cfg)
-            if cfg.pop("type") == "opencv":
-                cameras[name] = OpenCVCameraConfig(**cfg)
-            else:
-                cfg["rotation"] = Cv2Rotation[cfg["rotation"]]
-                cameras[name] = ZEDCameraConfig(camera_id=zed_cam_id, **cfg)
+                zed_cam_id = None
+                for name, cfg in resolved_camera_configs.items():
+                    cfg = dict(cfg)
+                    camera_type = cfg.pop("type", "zed")
+                    if camera_type == "opencv":
+                        cameras[name] = OpenCVCameraConfig(**cfg)
+                    elif camera_type == "opencv-cached":
+                        cameras[name] = OpenCVCameraCachedConfig(**cfg)
+                    else:
+                        if zed_cam_id is None:
+                            from lerobot_camera_zed.zed_camera import ZEDCamera
+
+                            available_zed_cameras = ZEDCamera.find_cameras()
+                            logger.info("Detected ZED cameras: %s", available_zed_cameras)
+                            if not available_zed_cameras:
+                                raise RuntimeError("Zed camera not found")
+                            zed_cam_id = available_zed_cameras[0]["id"]
+                            logger.info("Using ZED camera id=%s", zed_cam_id)
+                        cfg["rotation"] = Cv2Rotation[cfg["rotation"]]
+                        cameras[name] = ZEDCameraConfig(camera_id=zed_cam_id, **cfg)
+            except Exception as exc:
+                logger.warning("Camera setup failed (%s). Continuing without cameras.", exc)
+                cameras = {}
+                camera_label_map = {}
 
     bi_follower = BiYamsFollower(
         BiYamsFollowerConfig(
@@ -60,7 +77,29 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
         BiYamsLeaderConfig(left_arm_port=left_leader_port, right_arm_port=right_leader_port)
     )
     bi_leader.connect()
-    bi_follower.connect()
+    try:
+        bi_follower.connect()
+    except Exception as exc:
+        if cameras and not args.skip_cams:
+            logger.warning("Failed to connect cameras (%s). Retrying without cameras.", exc)
+            try:
+                bi_follower.disconnect()
+            except Exception:
+                pass
+            bi_follower = BiYamsFollower(
+                BiYamsFollowerConfig(
+                    left_arm_server_port=left_follower_server_port,
+                    right_arm_server_port=right_follower_server_port,
+                    cameras={},
+                )
+            )
+            try:
+                bi_follower.connect()
+                camera_label_map = {}
+            except Exception:
+                raise exc
+        else:
+            raise
 
     obs = bi_follower.get_observation(with_cameras=False)
     joint_keys = sorted(k for k in obs if k.endswith(".pos") and k.startswith(("left_", "right_")))
