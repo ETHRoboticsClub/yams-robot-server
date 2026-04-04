@@ -13,10 +13,10 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=ETHRC/towelspring26
+REPO=ETHRC/towelspring26_TESTTSTSTSTS
 RESUME=${RESUME:-false}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
-DATASET_FPS=${DATASET_FPS:-50}
+DATASET_FPS=${DATASET_FPS:-50} # Should be 30, cameras record at 30
 NUM_EPISODES=${NUM_EPISODES:-100}
 EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-0}
