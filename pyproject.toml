@@ -15,7 +15,6 @@ dependencies = [
     "i2rt",
     "ipykernel>=7.1.0",
     "pyyaml>=6.0",
-    "pyzed==5.1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
     "lerobot_robot_yams",
     "lerobot_teleoperator_gello",
     "lerobot_camera_zed",

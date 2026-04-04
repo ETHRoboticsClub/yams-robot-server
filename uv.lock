@@ -2520,8 +2520,6 @@ dependencies = [
     { name = "opencv-python" },
     { name = "pyrealsense2" },
     { name = "pyyaml" },
-    { name = "pyzed", version = "5.1", source = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_aarch64/pyzed-5.1-cp312-cp312-linux_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "pyzed", version = "5.1", source = { url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 
 [package.dev-dependencies]
@@ -2542,8 +2540,6 @@ requires-dist = [
     { name = "opencv-python" },
     { name = "pyrealsense2", specifier = ">=2.57.7.10387" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "pyzed", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_aarch64/pyzed-5.1-cp312-cp312-linux_aarch64.whl" },
-    { name = "pyzed", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", url = "https://download.stereolabs.com/zedsdk/5.1/whl/linux_x86_64/pyzed-5.1-cp312-cp312-linux_x86_64.whl" },
 ]
 
 [package.metadata.requires-dev]

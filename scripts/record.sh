@@ -13,9 +13,8 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=ETHRC/towelspring26_TESTTSTSTSTS
-RESUME=${RESUME:-false}
-PUSH_TO_HUB=${PUSH_TO_HUB:-false}
+REPO=ETHRC/towelspring26_2
+RESUME=${RESUME:-true}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
 DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
 NUM_EPISODES=${NUM_EPISODES:-100}
@@ -41,9 +40,11 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # fi
 # rm -rf /home/ethrc/.cache/huggingface/lerobot/$REPO
 
-# if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; then
-#     rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
-# fi
+if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; then
+    read -r -p "ATTENTION: You set resume to false. DELETE YOUR ENTIRE DATASET at $HOME/.cache/huggingface/lerobot/$REPO?? [y/N] " confirm
+    [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || exit 1
+    rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
+fi
 
 export PYNPUT_BACKEND_KEYBOARD=uinput
 uv run lerobot-record \
@@ -61,12 +62,13 @@ uv run lerobot-record \
     --dataset.single_task="$TASK" \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
-    --dataset.push_to_hub="$PUSH_TO_HUB" \
+    --dataset.push_to_hub=true \
     --resume="$RESUME" \
     --dataset.vcodec="$VCODEC" \
     --robot.cameras="$cameras" \
-    --dataset.streaming_encoding=true
-    # --dataset.push_to_hub=true \
+    --dataset.streaming_encoding=true \
+    --play_sounds=false
+    # --dataset.push_to_hub="$PUSH_TO_HUB" \
     # --dataset.encoder_queue_maxsize=1000
     # --dataset.encoder_threads=2
     # --dataset.vcodec=libx264 \

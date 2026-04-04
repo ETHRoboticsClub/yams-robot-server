@@ -13,7 +13,7 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=${REPO:-ETHRC/towelspring26_eval}
+REPO=${REPO:-ETHRC/eval_towelspring26}
 RESUME=${RESUME:-false}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
@@ -23,7 +23,7 @@ EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-0}
 TASK=${TASK:-Fold the towel.}
 VCODEC=${VCODEC:-auto}
-POLICY_PATH=${POLICY_PATH:-${HF_USER}/my_policy}
+POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/run1/pretrained_model} # This can also be huggingface path
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 LEFT_CAN=$(yq '.follower.left_arm.can_port' "$YAML")
