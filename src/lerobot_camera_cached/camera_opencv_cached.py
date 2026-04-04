@@ -18,6 +18,7 @@ class OpenCVCameraCached(OpenCVCamera):
         super().__init__(config)
         self.config = config
         self.ready = False
+        self.latest_frame_time = 0.0
         self.last_frame = np.zeros([self.config.height, self.config.width, 3], np.uint8)
 
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:
@@ -45,17 +46,23 @@ class OpenCVCameraCached(OpenCVCamera):
         if self.thread is None or not self.thread.is_alive():
             raise RuntimeError(f"{self} read thread is not running.")
 
-        timeout_s = timeout_ms / 1000.0
-        for _ in range(3):
-            if self.new_frame_event.wait(timeout=timeout_s):
-                frame = self.latest_frame
-                if frame is not None:
-                    self.last_frame = frame
-                    return frame
+        frame = self.latest_frame
+        if (
+            self.ready
+            and frame is not None
+            and time.monotonic() - self.latest_frame_time <= timeout_ms / 1000.0
+        ):
+            self.last_frame = frame
+            return frame
 
-            # Keep teleop alive on transient camera hiccups once we have a frame.
-            if self.latest_frame is not None:
-                return self.latest_frame
+        timeout_s = timeout_ms / 1000.0
+        if self.new_frame_event.wait(timeout=timeout_s):
+            frame = self.latest_frame
+            if frame is not None:
+                self.ready = True
+                self.latest_frame_time = time.monotonic()
+                self.last_frame = frame
+                return frame
 
         raise TimeoutError(
             f"Timed out waiting for frame from camera {self} after {timeout_ms} ms. "

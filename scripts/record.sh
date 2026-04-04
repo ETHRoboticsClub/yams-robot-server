@@ -16,7 +16,8 @@ YAML=configs/arms.yaml
 REPO=ETHRC/towelspring26
 RESUME=${RESUME:-false}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
-DATASET_FPS=${DATASET_FPS:-50}
+MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
+DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
 NUM_EPISODES=${NUM_EPISODES:-100}
 EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-0}
@@ -44,7 +45,7 @@ if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; t
     rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
 fi
 
-uv run lerobot-record \
+PYTHONPATH=src uv run python -m utils.lerobot_record_wrapper \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
     --teleop.left_arm_port="$LEFT_PORT" \

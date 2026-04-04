@@ -96,7 +96,7 @@ class BiYamsLeader(Teleoperator):
         left_action = left_f.result()
         right_action = right_f.result()
         if left_action is None or right_action is None:
-            return None
+            raise RuntimeError("Leader returned no action")
         return {
             **{f"left_{k}": v for k, v in left_action.items()},
             **{f"right_{k}": v for k, v in right_action.items()},

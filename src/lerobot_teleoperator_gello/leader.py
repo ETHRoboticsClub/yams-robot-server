@@ -19,10 +19,18 @@ def _ensure_xm430_w210_support() -> None:
     base = "xm430-w350"
     if model in DynamixelMotorsBus.model_ctrl_table:
         return
-    DynamixelMotorsBus.model_ctrl_table[model] = DynamixelMotorsBus.model_ctrl_table[base]
-    DynamixelMotorsBus.model_baudrate_table[model] = DynamixelMotorsBus.model_baudrate_table[base]
-    DynamixelMotorsBus.model_encoding_table[model] = DynamixelMotorsBus.model_encoding_table[base]
-    DynamixelMotorsBus.model_resolution_table[model] = DynamixelMotorsBus.model_resolution_table[base]
+    DynamixelMotorsBus.model_ctrl_table[model] = DynamixelMotorsBus.model_ctrl_table[
+        base
+    ]
+    DynamixelMotorsBus.model_baudrate_table[model] = (
+        DynamixelMotorsBus.model_baudrate_table[base]
+    )
+    DynamixelMotorsBus.model_encoding_table[model] = (
+        DynamixelMotorsBus.model_encoding_table[base]
+    )
+    DynamixelMotorsBus.model_resolution_table[model] = (
+        DynamixelMotorsBus.model_resolution_table[base]
+    )
     DynamixelMotorsBus.model_number_table[model] = 1030
 
 
@@ -146,8 +154,7 @@ class YamsLeader(Teleoperator):
                 normalize=False, data_name="Present_Position"
             )
         except Exception as e:
-            print(f"Error reading from {self}: {e}")
-            return None
+            raise RuntimeError(f"Failed to read leader action from {self}") from e
 
         calibration_offsets = self.calibration.get("offsets", {})
         calibration_scales = self.calibration.get("scales", {})
