@@ -51,7 +51,6 @@ def parse_args():
 def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJointPlotter, trajectory, collecting):
     deadline = time.monotonic()
     with_cameras = True
-    warned_camera_timeout = False
 
     while not stop_event.is_set():
         plotter.process_trajectory_controls(trajectory, collecting)
@@ -59,11 +58,15 @@ def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJoin
         try:
             obs = bi_follower.get_observation(with_cameras=with_cameras)
         except TimeoutError as exc:
-            if with_cameras and not warned_camera_timeout:
+            if with_cameras:
                 logger.warning("Camera read timed out (%s). Continuing without cameras.", exc)
-                warned_camera_timeout = True
-            with_cameras = False
-            obs = bi_follower.get_observation(with_cameras=False)
+                with_cameras = False
+                try:
+                    obs = bi_follower.get_observation(with_cameras=False)
+                except TimeoutError:
+                    continue
+            else:
+                raise
         with obs_lock:
             latest_obs.update(obs)
         
