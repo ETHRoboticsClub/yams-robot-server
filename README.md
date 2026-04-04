@@ -92,6 +92,7 @@ Set up USBs with `sudo .venv/bin/python scripts/setup_leader_ports.py` -->
 ./scripts/teleop.sh
 ```
 ```bash
+sudo -i
 ./scripts/record.sh
 ```
 <!-- **Standalone example script:**
