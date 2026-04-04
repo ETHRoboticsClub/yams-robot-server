@@ -33,8 +33,12 @@ class BiYamsFollowerConfig(RobotConfig):
     right_arm_can_port: str = "can_follower_r"
     right_arm_server_port: int = 11334
     ground_z: float = field(default_factory=lambda: _COLLISION["ground_z"])
-    end_effector_length: float = field(default_factory=lambda: _COLLISION["end_effector_length"])
-    max_joint_step: np.ndarray = field(default_factory=lambda: np.array(_COLLISION["max_joint_step"]))
+    end_effector_length: float = field(
+        default_factory=lambda: _COLLISION["end_effector_length"]
+    )
+    max_joint_step: np.ndarray = field(
+        default_factory=lambda: np.array(_COLLISION["max_joint_step"])
+    )
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
@@ -66,6 +70,7 @@ class BiYamsFollower(Robot):
         self.left_arm = YamsFollower(left_arm_config)
         self.right_arm = YamsFollower(right_arm_config)
         self._last_angles: dict[str, np.ndarray | None] = {"left": None, "right": None}
+        self._obs_pool = ThreadPoolExecutor(max_workers=max(2, len(self.cameras) + 2))
 
     @property
     def _motors_ft(self) -> dict[str, type]:
@@ -117,17 +122,23 @@ class BiYamsFollower(Robot):
     def get_observation(self, with_cameras=True) -> dict[str, Any]:
         obs_dict = {}
 
-        left_obs = self.left_arm.get_observation()
-        obs_dict.update({f"left_{key}": value for key, value in left_obs.items()})
+        left_future = self._obs_pool.submit(self.left_arm.get_observation)
+        right_future = self._obs_pool.submit(self.right_arm.get_observation)
 
-        right_obs = self.right_arm.get_observation()
+        left_obs = left_future.result()
+        right_obs = right_future.result()
+        obs_dict.update({f"left_{key}": value for key, value in left_obs.items()})
         obs_dict.update({f"right_{key}": value for key, value in right_obs.items()})
-        
+
         if with_cameras:
-            for cam_key, cam in self.cameras.items():
+            cam_futures = {
+                cam_key: self._obs_pool.submit(cam.async_read)
+                for cam_key, cam in self.cameras.items()
+            }
+            for cam_key, future in cam_futures.items():
                 start = time.perf_counter()
                 try:
-                    obs_dict[cam_key] = cam.async_read()
+                    obs_dict[cam_key] = future.result()
                 except (TimeoutError, OSError) as exc:
                     raise CameraReadError(f"{cam_key} read failed: {exc}") from exc
                 dt_ms = (time.perf_counter() - start) * 1e3
@@ -146,8 +157,6 @@ class BiYamsFollower(Robot):
             for key, value in action.items()
             if key.startswith("right_")
         }
-
-
 
         joint_names_6 = self.left_arm.config.joint_names[:6]
         for side, arm_action in [("left", left_action), ("right", right_action)]:
@@ -180,6 +189,8 @@ class BiYamsFollower(Robot):
         with ThreadPoolExecutor(max_workers=2) as ex:
             ex.submit(self.left_arm.disconnect)
             ex.submit(self.right_arm.disconnect)
+
+        self._obs_pool.shutdown(wait=True)
 
         for cam in self.cameras.values():
             cam.disconnect()

@@ -304,21 +304,6 @@ wheels = [
 ]
 
 [[package]]
-name = "daqp"
-version = "0.7.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/27/17/9d3409165ad752dab54af5779fdd77757957587fe2a3404f92a4fbd4cea3/daqp-0.7.2.tar.gz", hash = "sha256:195855763331d6fc15d54b2354f91b0888e84cf43e1e9ee62f01cdce11f555e7", size = 178815, upload-time = "2025-08-11T21:51:34.578Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/7a/14d99758ee8dd30a4a9872cd9335a39f132300a89a85ce0babf95abf58e1/daqp-0.7.2-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:128e069af356d058c3118835f54a17a44ec2c2b9892693ba4328129717649608", size = 113417, upload-time = "2025-08-11T21:52:41.539Z" },
-    { url = "https://files.pythonhosted.org/packages/9e/08/041461120e16bab05ea163afdb88fab452aefa9cbeadb9b91b3ec4f23635/daqp-0.7.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:9da7a69e89b5d26302cbfb049f132981fe1c2f2a59a788e46a7b53df242b4828", size = 102660, upload-time = "2025-07-29T13:01:04.352Z" },
-    { url = "https://files.pythonhosted.org/packages/97/84/f8a89433fd182a850aa8db9c0cfffc9d2ebf7347b34eb5e203c8488459a2/daqp-0.7.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7d27e010ef42405f5979a93ca75c2c2f323a2b34247aacb4328fb446c61058d3", size = 630535, upload-time = "2025-08-11T21:51:27.509Z" },
-    { url = "https://files.pythonhosted.org/packages/2f/2a/b0a896f1aa8618fae09acf508f0bb0192022383dbf73bea76143345167c8/daqp-0.7.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5bc97b1f8b9ecd3bc1e5b8c0edc839314e6fd9e13061637a664d003e9b7ef7db", size = 584167, upload-time = "2025-07-29T13:41:43.828Z" },
-    { url = "https://files.pythonhosted.org/packages/c4/e2/1f1d0ea885665adc0447089e2c5d803162e81a90499ab2bdcbaebbefd368/daqp-0.7.2-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:61cb14d6738d64369a1224820514039550c14f3c40054d78c0cb303012002066", size = 602219, upload-time = "2025-07-29T13:41:45.316Z" },
-    { url = "https://files.pythonhosted.org/packages/10/bc/975c5ea099706d49fcb09e3612bbaca6477fe6d343468ebf0b91d2408fce/daqp-0.7.2-cp312-cp312-win32.whl", hash = "sha256:1f384048ae28884ef9264cce3183c74269ee2cd3cbd7c184fe765358c0fc1ba2", size = 79852, upload-time = "2025-08-11T21:58:49.538Z" },
-    { url = "https://files.pythonhosted.org/packages/ea/72/3bbbb5c5da4b982f420000ee4465b46b35d802bfbc73c1f3b772585c8b86/daqp-0.7.2-cp312-cp312-win_amd64.whl", hash = "sha256:49d66d0c92f309eda5acbbbb3b970f2ff90ec93e0f7450ced75fd2df83c12e3b", size = 97974, upload-time = "2025-08-11T21:58:50.415Z" },
-]
-
-[[package]]
 name = "datasets"
 version = "4.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -723,12 +708,9 @@ dependencies = [
     { name = "click" },
     { name = "dm-env" },
     { name = "evdev", marker = "sys_platform == 'linux'" },
-    { name = "mink" },
     { name = "mujoco" },
     { name = "numpy" },
     { name = "portal" },
-    { name = "pydantic" },
-    { name = "pydantic-core" },
     { name = "pygame" },
     { name = "python-can" },
     { name = "qpsolvers", extra = ["quadprog"] },
@@ -742,12 +724,9 @@ requires-dist = [
     { name = "click", specifier = "<8.2.0" },
     { name = "dm-env", specifier = "==1.6" },
     { name = "evdev", marker = "sys_platform == 'linux'", specifier = "==1.9.2" },
-    { name = "mink", specifier = "==0.0.11" },
     { name = "mujoco", specifier = "==3.3.5" },
     { name = "numpy", specifier = "==2.2.6" },
     { name = "portal", specifier = "==3.7.3" },
-    { name = "pydantic", specifier = "==2.12.5" },
-    { name = "pydantic-core", specifier = "==2.41.5" },
     { name = "pygame", specifier = "==2.6.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.4.0" },
     { name = "python-can", specifier = "==4.5.0" },
@@ -1094,21 +1073,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3a/41/580bb4006e3ed0361b8151a01d324fb03f420815446c7def45d02f74c270/mergedeep-1.3.4.tar.gz", hash = "sha256:0096d52e9dad9939c3d975a774666af186eda617e6ca84df4c94dec30004f2a8", size = 4661, upload-time = "2021-02-05T18:55:30.623Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2c/19/04f9b178c2d8a15b076c8b5140708fa6ffc5601fb6f1e975537072df5b2a/mergedeep-1.3.4-py3-none-any.whl", hash = "sha256:70775750742b25c0d8f36c55aed03d24c3384d17c951b3175d898bd778ef0307", size = 6354, upload-time = "2021-02-05T18:55:29.583Z" },
-]
-
-[[package]]
-name = "mink"
-version = "0.0.11"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "mujoco" },
-    { name = "numpy" },
-    { name = "qpsolvers", extra = ["daqp"] },
-    { name = "typing-extensions" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/dc/1d341c96487edf4fe8fc5a9a6c52f1076c042ec20cf891c6fa83cf29ee07/mink-0.0.11.tar.gz", hash = "sha256:7cda42f59436c290b9d874b7b328692011f54b6253d7ad582f931d1763ffe197", size = 692608, upload-time = "2025-05-22T21:16:19.826Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/39/dc1926d5c54a97c64e61dce98dedbc965af17cbb1ddeb2b33c82476591b5/mink-0.0.11-py3-none-any.whl", hash = "sha256:6341ea44071be284d73882005eb1db07e3361dc992e95457a9767cc8dc19d80c", size = 913660, upload-time = "2025-05-22T21:16:16.079Z" },
 ]
 
 [[package]]
@@ -1955,9 +1919,6 @@ wheels = [
 ]
 
 [package.optional-dependencies]
-daqp = [
-    { name = "daqp" },
-]
 quadprog = [
     { name = "quadprog" },
 ]
