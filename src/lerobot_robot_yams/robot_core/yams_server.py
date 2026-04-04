@@ -46,7 +46,7 @@ class YamsServer:
     def __init__(self, robot: Robot, port: int):
         self._robot = robot
         self._server = portal.Server(port)
-        print(f"Robot Sever Binding to {port}, Robot: {robot}")
+        print(f"Robot Server Binding to {port}, Robot: {robot}")
 
         self._server.bind("num_dofs", self._robot.num_dofs)
         self._server.bind("get_joint_pos", self._robot.get_joint_pos)

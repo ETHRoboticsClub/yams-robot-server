@@ -158,4 +158,4 @@ cameras:
       fps: 30
       width: 640
       height: 480
-      fourcc: YUYV
+      fourcc: MJPG
