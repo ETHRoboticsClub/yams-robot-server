@@ -37,6 +37,12 @@ bash third_party/i2rt/scripts/reset_all_can.sh
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 
+if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; then
+    read -r -p "ATTENTION: You set resume to false. DELETE YOUR ENTIRE DATASET at $HOME/.cache/huggingface/lerobot/$REPO?? [y/N] " confirm
+    [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || exit 1
+    rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
+fi
+
 export PYNPUT_BACKEND_KEYBOARD=uinput
 uv run lerobot-record \
     --robot.type=bi_yams_follower \
