@@ -86,9 +86,10 @@ def resolve_camera_configs(camera_configs: dict, logger=None) -> dict:
 
     memo_to_save: dict[str, dict[str, str]] = {}
     for name in opencv_camera_names:
-        camera_path = _device_path(configs[name].get("index_or_path", ""))
+        camera_path = configs[name].get("index_or_path")
         if not camera_path:
             continue
+        camera_path = _device_path(camera_path)
         try:
             signature = _camera_signature(_udev_properties(camera_path))
         except Exception:

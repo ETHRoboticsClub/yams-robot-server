@@ -23,7 +23,7 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     leader_config = arms_config["leader"]
     follower_joint_label_map = build_joint_label_map(follower_config)
     leader_joint_label_map = build_joint_label_map(leader_config)
-    camera_label_map = arms_config.get("cameras", {}).get("labels", {})
+    camera_label_map: dict[str, str] = arms_config.get("cameras", {}).get("labels", {})
     left_follower_server_port = follower_config["left_arm"]["server_port"]
     right_follower_server_port = follower_config["right_arm"]["server_port"]
     left_leader_port = leader_config["left_arm"]["port"]
@@ -31,6 +31,7 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     run_pre_setup(left_follower_server_port, right_follower_server_port, usb_ports=[left_leader_port, right_leader_port])
 
     cameras = {}
+    had_camera_config = False
     if args.skip_cams:
         logger.info("Skipping camera setup (--skip-cams enabled)")
     else:
@@ -38,6 +39,7 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
         if not raw_camera_configs:
             logger.warning("No cameras configured in mapping yaml; continuing without cameras.")
         else:
+            had_camera_config = True
             try:
                 resolved_camera_configs = resolve_camera_configs(raw_camera_configs, logger)
 
@@ -80,7 +82,7 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     try:
         bi_follower.connect()
     except Exception as exc:
-        if cameras and not args.skip_cams:
+        if had_camera_config and not args.skip_cams:
             logger.warning("Failed to connect cameras (%s). Retrying without cameras.", exc)
             try:
                 bi_follower.disconnect()
@@ -97,7 +99,7 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
                 bi_follower.connect()
                 camera_label_map = {}
             except Exception:
-                raise exc
+                raise
         else:
             raise
 
