@@ -61,8 +61,8 @@ uv run lerobot-record \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub="$PUSH_TO_HUB" \
     --resume="$RESUME" \
-    --robot.cameras="$cameras" \
     --dataset.vcodec="$VCODEC" \
+    --robot.cameras="$cameras" \
     --dataset.streaming_encoding=true
     # --dataset.push_to_hub=true \
     # --dataset.encoder_queue_maxsize=1000
