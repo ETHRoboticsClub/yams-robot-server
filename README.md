@@ -93,6 +93,7 @@ Set up USBs with `sudo .venv/bin/python scripts/setup_leader_ports.py` -->
 ```
 ```bash
 sudo -i
+cd /home/ethrc/Desktop/yams-robot-server
 ./scripts/record.sh
 ```
 <!-- **Standalone example script:**
