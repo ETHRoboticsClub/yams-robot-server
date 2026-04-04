@@ -26,6 +26,8 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
     camera_label_map: dict[str, str] = arms_config.get("cameras", {}).get("labels", {})
     left_follower_server_port = follower_config["left_arm"]["server_port"]
     right_follower_server_port = follower_config["right_arm"]["server_port"]
+    left_follower_can_port = follower_config["left_arm"]["can_port"]
+    right_follower_can_port = follower_config["right_arm"]["can_port"]
     left_leader_port = leader_config["left_arm"]["port"]
     right_leader_port = leader_config["right_arm"]["port"]
     run_pre_setup(left_follower_server_port, right_follower_server_port, usb_ports=[left_leader_port, right_leader_port])
@@ -70,7 +72,9 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
 
     bi_follower = BiYamsFollower(
         BiYamsFollowerConfig(
+            left_arm_can_port=left_follower_can_port,
             left_arm_server_port=left_follower_server_port,
+            right_arm_can_port=right_follower_can_port,
             right_arm_server_port=right_follower_server_port,
             cameras=cameras,
         )
@@ -90,7 +94,9 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
                 pass
             bi_follower = BiYamsFollower(
                 BiYamsFollowerConfig(
+                    left_arm_can_port=left_follower_can_port,
                     left_arm_server_port=left_follower_server_port,
+                    right_arm_can_port=right_follower_can_port,
                     right_arm_server_port=right_follower_server_port,
                     cameras={},
                 )
