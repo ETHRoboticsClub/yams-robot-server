@@ -18,6 +18,7 @@ from utils.teleop_data import TRAJECTORIES_DIR, cameras_only, joint_only, load_t
 from utils.teleop_setup import setup_arms_cameras_plotter
 from utils.time_each_line import format_timing, new_timing_stats, record_timing, time_each_line
 from plotting.live_joint_plot import LiveJointPlotter
+from lerobot_robot_yams.bi_follower import CameraReadError
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,12 +58,11 @@ def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJoin
 
         try:
             obs = bi_follower.get_observation(with_cameras=with_cameras)
-        except Exception as exc:
+        except CameraReadError as exc:
             if with_cameras:
                 logger.warning("Camera error at runtime (%s). Continuing without cameras.", str(exc))
                 with_cameras = False
-                continue
-            raise
+            continue
         with obs_lock:
             latest_obs.update(obs)
         
