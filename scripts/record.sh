@@ -41,11 +41,11 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 # fi
 # rm -rf /home/ethrc/.cache/huggingface/lerobot/$REPO
 
-if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; then
-    rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
-fi
+# if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; then
+#     rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
+# fi
 
-export PYNPUT_BACKEND_KEYBOARD=uinput 
+export PYNPUT_BACKEND_KEYBOARD=uinput
 uv run lerobot-record \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
