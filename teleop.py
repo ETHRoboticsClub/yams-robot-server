@@ -57,11 +57,12 @@ def camera_loop(bi_follower, latest_obs, obs_lock, stop_event, plotter: LiveJoin
 
         try:
             obs = bi_follower.get_observation(with_cameras=with_cameras)
-        except TimeoutError as exc:
+        except Exception as exc:
             if with_cameras:
-                logger.warning("Camera read timed out (%s). Continuing without cameras.", str(exc))
+                logger.warning("Camera error at runtime (%s). Continuing without cameras.", str(exc))
                 with_cameras = False
-            continue
+                continue
+            raise
         with obs_lock:
             latest_obs.update(obs)
         
