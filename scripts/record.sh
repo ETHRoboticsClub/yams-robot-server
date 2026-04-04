@@ -13,7 +13,7 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=ETHRC/towelspring26
+REPO=ETHRC/towelspring26_TESTTSTSTSTS
 RESUME=${RESUME:-false}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
@@ -62,8 +62,8 @@ PYTHONPATH=src uv run python -m utils.lerobot_record_wrapper \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub="$PUSH_TO_HUB" \
     --resume="$RESUME" \
-    --robot.cameras="$cameras" \
     --dataset.vcodec="$VCODEC" \
+    --robot.cameras="$cameras" \
     --dataset.streaming_encoding=true
     # --dataset.push_to_hub=true \
     # --dataset.encoder_queue_maxsize=1000

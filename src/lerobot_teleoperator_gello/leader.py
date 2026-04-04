@@ -151,7 +151,9 @@ class YamsLeader(Teleoperator):
 
         try:
             raw_positions = self.bus.sync_read(
-                normalize=False, data_name="Present_Position"
+                normalize=False,
+                data_name="Present_Position",
+                num_retry=10,
             )
         except Exception as e:
             raise RuntimeError(f"Failed to read leader action from {self}") from e
