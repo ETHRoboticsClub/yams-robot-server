@@ -21,6 +21,10 @@ _ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml
 _COLLISION = yaml.safe_load(_ARMS_CONFIG_PATH.read_text())["collision"]
 
 
+class CameraReadError(RuntimeError):
+    pass
+
+
 @RobotConfig.register_subclass("bi_yams_follower")
 @dataclass
 class BiYamsFollowerConfig(RobotConfig):
@@ -122,7 +126,10 @@ class BiYamsFollower(Robot):
         if with_cameras:
             for cam_key, cam in self.cameras.items():
                 start = time.perf_counter()
-                obs_dict[cam_key] = cam.async_read()
+                try:
+                    obs_dict[cam_key] = cam.async_read()
+                except (TimeoutError, OSError) as exc:
+                    raise CameraReadError(f"{cam_key} read failed: {exc}") from exc
                 dt_ms = (time.perf_counter() - start) * 1e3
                 logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
 
