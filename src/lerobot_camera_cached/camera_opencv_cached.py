@@ -1,5 +1,6 @@
 import logging
 import time
+from pathlib import Path
 
 import numpy as np
 from lerobot.utils.errors import DeviceNotConnectedError
@@ -9,6 +10,7 @@ from numpy.typing import NDArray  # type: ignore  # TODO: add type stubs for num
 from typing import Any
 
 from lerobot_camera_cached.cached_config import OpenCVCameraCachedConfig
+from utils.camera_auto_exposure import CameraAutoExposure, get_exposure
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,7 @@ class OpenCVCameraCached(OpenCVCamera):
         self.ready = False
         self.latest_frame_time = 0.0
         self.last_frame = np.zeros([self.config.height, self.config.width, 3], np.uint8)
+        self.auto_exposure = self._build_auto_exposure()
 
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:
         """
@@ -87,6 +90,55 @@ class OpenCVCameraCached(OpenCVCamera):
         if last_error is not None:
             raise last_error
         raise RuntimeError(f"{self} failed to connect.")
+
+    def _build_auto_exposure(self) -> CameraAutoExposure | None:
+        if isinstance(self.index_or_path, int):
+            return None
+        device = Path(self.index_or_path).resolve()
+        if not self.config.auto_exposure_enabled or not str(device).startswith("/dev/video"):
+            return None
+        return CameraAutoExposure(
+            device=device,
+            exposure=get_exposure(device),
+            target=self.config.auto_exposure_target,
+            deadband=self.config.auto_exposure_deadband,
+            speed=self.config.auto_exposure_speed,
+            min_exposure=self.config.auto_exposure_min,
+            max_exposure=self.config.auto_exposure_max,
+            period_s=self.config.auto_exposure_period_s,
+        )
+
+    def _read_loop(self) -> None:
+        if self.stop_event is None:
+            raise RuntimeError(f"{self}: stop_event is not initialized before starting read loop.")
+
+        failure_count = 0
+        while not self.stop_event.is_set():
+            try:
+                raw_frame = self._read_from_hardware()
+                processed_frame = self._postprocess_image(raw_frame)
+                capture_time = time.perf_counter()
+
+                with self.frame_lock:
+                    self.latest_frame = processed_frame
+                    self.latest_timestamp = capture_time
+                self.new_frame_event.set()
+
+                if self.auto_exposure is not None:
+                    exposure = self.auto_exposure.tick(processed_frame)
+                    if exposure is not None:
+                        logger.info("%s exposure_time_absolute=%s", self, exposure)
+
+                failure_count = 0
+
+            except DeviceNotConnectedError:
+                break
+            except Exception as e:
+                if failure_count <= 10:
+                    failure_count += 1
+                    logger.warning(f"Error reading frame in background thread for {self}: {e}")
+                else:
+                    raise RuntimeError(f"{self} exceeded maximum consecutive read failures.") from e
 
 
 if __name__ == "__main__":
