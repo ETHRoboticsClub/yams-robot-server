@@ -5,6 +5,7 @@ from lerobot.cameras.opencv import OpenCVCameraConfig
 from lerobot.cameras.configs import Cv2Rotation
 
 from lerobot_camera_cached.cached_config import OpenCVCameraCachedConfig
+from lerobot_camera_cached.realsense_cached_config import RealSenseCameraCachedConfig
 from lerobot_camera_zed.zed_config import ZEDCameraConfig
 from lerobot_robot_yams.bi_follower import BiYamsFollower, BiYamsFollowerConfig
 from lerobot_teleoperator_gello.bi_leader import BiYamsLeader, BiYamsLeaderConfig
@@ -53,6 +54,8 @@ def setup_arms_cameras_plotter(args, arms_config_path: Path, logger):
                         cameras[name] = OpenCVCameraConfig(**cfg)
                     elif camera_type == "opencv-cached":
                         cameras[name] = OpenCVCameraCachedConfig(**cfg)
+                    elif camera_type == "intelrealsense-cached":
+                        cameras[name] = RealSenseCameraCachedConfig(**cfg)
                     else:
                         if zed_cam_id is None:
                             from lerobot_camera_zed.zed_camera import ZEDCamera

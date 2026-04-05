@@ -13,7 +13,7 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=ETHRC/towelspring26_2
+REPO=ETHRC/towelspring26_3
 RESUME=${RESUME:-true}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
 DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
@@ -29,11 +29,18 @@ RIGHT_CAN=$(yq '.follower.right_arm.can_port' "$YAML")
 LEFT_SERVER=$(yq '.follower.left_arm.server_port' "$YAML")
 RIGHT_SERVER=$(yq '.follower.right_arm.server_port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
+CAMERA_PATHS=$(yq -r '.cameras.configs[] | select(has("index_or_path")) | .index_or_path' "$YAML")
 
 PYTHONPATH=src uv run python -c "from utils.connection import _free_port; _free_port('$LEFT_PORT'); _free_port('$RIGHT_PORT'); _free_port(int('$LEFT_SERVER')); _free_port(int('$RIGHT_SERVER'))"
 bash third_party/i2rt/scripts/reset_all_can.sh
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
+
+for camera in $CAMERA_PATHS; do
+    ./scripts/set_camera_profile.sh "$(readlink -f "$camera")"
+done
+
+
 
 # if [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ] && [ ! -f "$HOME/.cache/huggingface/lerobot/$REPO/meta/info.json" ]; then
 #     mv "$HOME/.cache/huggingface/lerobot/$REPO" "$HOME/.cache/huggingface/lerobot/$REPO.stale.$(date +%s)"
