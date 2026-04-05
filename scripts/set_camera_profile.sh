@@ -8,7 +8,7 @@ fi
 
 DEV="$1"
 
-v4l2-ctl -d "$DEV" --set-ctrl=brightness=-20
+v4l2-ctl -d "$DEV" --set-ctrl=brightness=0
 v4l2-ctl -d "$DEV" --set-ctrl=contrast=28
 v4l2-ctl -d "$DEV" --set-ctrl=saturation=64
 v4l2-ctl -d "$DEV" --set-ctrl=hue=0

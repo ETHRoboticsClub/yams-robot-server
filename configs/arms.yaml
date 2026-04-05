@@ -145,9 +145,9 @@ cameras:
       height: 480
       fourcc: MJPG
       auto_exposure_enabled: true
-      auto_exposure_target: 110
+      auto_exposure_target: 120
       auto_exposure_min: 20
-      auto_exposure_max: 120
+      auto_exposure_max: 130
     left_wrist:
       type: opencv-cached
       index_or_path: /dev/v4l/by-path/pci-0000:0c:00.0-usb-0:1:1.0-video-index0
@@ -156,9 +156,9 @@ cameras:
       height: 480
       fourcc: MJPG
       auto_exposure_enabled: true
-      auto_exposure_target: 110
+      auto_exposure_target: 120
       auto_exposure_min: 20
-      auto_exposure_max: 120
+      auto_exposure_max: 130
     topdown:
       type: intelrealsense-cached
       serial_number_or_name: "203522250539"
