@@ -30,7 +30,7 @@ git submodule update --init --recursive
 - Precisely place the follower arms in the zero position for calibration.
 - Calibrate follower arms with `uv run scripts/compute_offsets.py`.
 - Identify the correct camera ids by running `uv run lerobot-find-cameras`. Make sure mapping is correct in `arms.yaml` in the `index_or_path` field. You can find their images in `outputs/captured_images/`.
-- Make sure the output images of the wrist cameras look properly exposed
+- Make sure the output images of the wrist cameras look properly exposed. If it's not then go into scripts/set_camera_profile.sh, modify the settings, and redo the find cameras (most likely you just need to modify exposure_time_absolute).
 - Type `realsense-viewer`, load the config from configs/realsense.json, and make sure it looks good. If it looks bad, overwrite the configs/realsense.json with better settings.
 - DO THIS FOR WRIST CAMERAS, NOT ZED CAMERA: `./scripts/set_camera_profile.sh /dev/video<ID>`
 - Run `uv run lerobot-find-cameras` again, check outputs to make sure they look normal.
