@@ -23,7 +23,7 @@ EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-0}
 TASK=${TASK:-Fold the towel.}
 VCODEC=${VCODEC:-auto}
-POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/run1/pretrained_model} # This can also be huggingface path
+POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2/checkpoints/last} # This can also be huggingface path
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 LEFT_CAN=$(yq '.follower.left_arm.can_port' "$YAML")
@@ -31,6 +31,8 @@ RIGHT_CAN=$(yq '.follower.right_arm.can_port' "$YAML")
 LEFT_SERVER=$(yq '.follower.left_arm.server_port' "$YAML")
 RIGHT_SERVER=$(yq '.follower.right_arm.server_port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
+
+[ -d "$POLICY_PATH/pretrained_model" ] && POLICY_PATH="$POLICY_PATH/pretrained_model"
 
 PYTHONPATH=src uv run python -c "from utils.connection import _free_port; _free_port('$LEFT_PORT'); _free_port('$RIGHT_PORT'); _free_port(int('$LEFT_SERVER')); _free_port(int('$RIGHT_SERVER'))"
 bash third_party/i2rt/scripts/reset_all_can.sh
@@ -64,4 +66,5 @@ uv run lerobot-record \
     --dataset.vcodec="$VCODEC" \
     --robot.cameras="$cameras" \
     --dataset.streaming_encoding=true \
-    --policy.path="$POLICY_PATH"
+    --policy.path="$POLICY_PATH" \
+    --play_sounds=false

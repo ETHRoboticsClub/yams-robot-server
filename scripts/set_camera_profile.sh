@@ -21,7 +21,7 @@ v4l2-ctl -d "$DEV" --set-ctrl=backlight_compensation=0
 
 v4l2-ctl -d "$DEV" --set-ctrl=auto_exposure=1
 v4l2-ctl -d "$DEV" --set-ctrl=exposure_dynamic_framerate=1
-v4l2-ctl -d "$DEV" --set-ctrl=exposure_time_absolute=30
+v4l2-ctl -d "$DEV" --set-ctrl=exposure_time_absolute=100
 
 echo "Applied camera profile to $DEV"
 v4l2-ctl -d "$DEV" --list-ctrls
