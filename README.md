@@ -20,6 +20,10 @@ git submodule update --init --recursive
    ```
 
 ## Setup (Important)
+** Before running use the god setup script to guide you through all problems **
+```bash
+uv run python scripts/check_setup.py
+```
 
 > **Important:** Read this before running any teleoperation or recording commands.
 - Turn on both power strips. Follower fans should start making noise.
@@ -36,6 +40,7 @@ git submodule update --init --recursive
 - Run `uv run lerobot-find-cameras` again, check outputs to make sure they look normal.
 - Make sure the cameras are focused.
 - Wrist cameras can also self-adjust manual exposure at runtime with the `auto_exposure_*` fields under each `opencv-cached` camera in `configs/arms.yaml`.
+- Check the setup without resetting CAN or starting teleop with `uv run python scripts/check_setup.py`.
 ---
 
 ### Run Bimanual

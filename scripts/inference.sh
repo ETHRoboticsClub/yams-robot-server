@@ -13,9 +13,10 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=${REPO:-ETHRC/eval_towelspring26}
+REPO=${REPO:-ETHRC/eval_towelspring26_test}
 RESUME=${RESUME:-false}
-PUSH_TO_HUB=${PUSH_TO_HUB:-false}
+PUSH_TO_HUB=${PUSH_TO_HUB:-true}
+NEW_REPO=${NEW_REPO:-false}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
 DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
 NUM_EPISODES=${NUM_EPISODES:-100}
@@ -23,8 +24,21 @@ EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-0}
 TASK=${TASK:-Fold the towel.}
 VCODEC=${VCODEC:-auto}
-POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2/checkpoints/last} # This can also be huggingface path
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/run1/pretrained_model} # This can also be huggingface pat
+# Baraqs and previous year's runs:
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2/checkpoints/last} # This can also be huggingface path
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/realsense_1/checkpoints/last} # this was trained on ETHRC/towelspring26_3-trimmed 
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2/checkpoints/last} # WORKS WELL (when light is on AT NIGHT), trained on ETHRC/towelspring26_2 DOES NOT WORK WELL IN DAY LIGHT CONDITIONS
+# Run 2 variants from the April 17/18 training batch (all use latest checkpoints/last)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/realsense_1_notrim/checkpoints/last}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/run1/pretrained_model} # This can also be huggingface path
+
+# Tommmaso and Matteo's runs with augmented data:
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_blur_20260417_224504_74152/checkpoints/last} # NOT WORKING# Run 2 dark blur # does not work tested day light conditions, need to test at night with light
+POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_noise_20260417_224504_74152/checkpoints/last} # WORKS WELL # Run 2 dark noise # TESTED IN DAY LIGHT CONDITIONS, NEED TO TEST AT NIGHT WITH LIGHT
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_shadow_20260417_224504_74152/checkpoints/last}# WORKS WELL # Run 2 dark shadow # TESTED IN DAY LIGHT CONDITIONS, NEED TO TEST AT NIGHT WITH LIGHT
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_no_aug_20260417_224504_74152/checkpoints/last} # NOT WORKING # Run 2 no augment
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_augmented_20260417_224504_74152/checkpoints/last} # NOT working (tested in day light conditions)
+
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 LEFT_CAN=$(yq '.follower.left_arm.can_port' "$YAML")
@@ -34,6 +48,14 @@ RIGHT_SERVER=$(yq '.follower.right_arm.server_port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
 CAMERA_PATHS=$(yq -r '.cameras.configs[] | select(has("index_or_path")) | .index_or_path' "$YAML")
 INTERRUPTED=false
+
+if [ "$NEW_REPO" = "true" ]; then
+    RUN_ID=${RUN_ID:-$(date +%Y%m%d_%H%M%S)}
+    REPO="${REPO}_$RUN_ID"
+    echo "NEW_REPO=true: writing this eval to $REPO"
+fi
+DATASET_BASE_DIR=${DATASET_BASE_DIR:-"$HOME/.cache/huggingface/lerobot"}
+DATASET_ROOT=${DATASET_ROOT:-"$DATASET_BASE_DIR/$REPO"}
 
 cleanup_zero() {
     echo "Signal received: moving follower arms to zero"
@@ -54,13 +76,14 @@ for camera in $CAMERA_PATHS; do
     ./scripts/set_camera_profile.sh "$(readlink -f "$camera")"
 done
 
-if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; then
-    read -r -p "ATTENTION: You set resume to false. DELETE YOUR ENTIRE DATASET at $HOME/.cache/huggingface/lerobot/$REPO?? [y/N] " confirm
+if [ "$RESUME" != "true" ] && [ -d "$DATASET_ROOT" ]; then
+    read -r -p "ATTENTION: You set resume to false. DELETE YOUR ENTIRE DATASET at $DATASET_ROOT?? [y/N] " confirm
     [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || exit 1
-    rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
+    rm -rf "$DATASET_ROOT"
 fi
 
 export PYNPUT_BACKEND_KEYBOARD=uinput
+export PYNPUT_BACKEND_MOUSE=dummy
 uv run lerobot-record \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
@@ -75,7 +98,7 @@ uv run lerobot-record \
     --dataset.reset_time_s="$RESET_TIME_S" \
     --dataset.single_task="$TASK" \
     --dataset.repo_id="$REPO" \
-    --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
+    --dataset.root="$DATASET_ROOT" \
     --dataset.push_to_hub="$PUSH_TO_HUB" \
     --resume="$RESUME" \
     --dataset.vcodec="$VCODEC" \

@@ -13,8 +13,9 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=ETHRC/towelspring26_3
-RESUME=${RESUME:-true}
+REPO=ETHRC/towelspring26_TESTTSTSTSTS
+RESUME=${RESUME:-false}
+PUSH_TO_HUB=${PUSH_TO_HUB:-false}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
 DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
 NUM_EPISODES=${NUM_EPISODES:-100}
@@ -29,18 +30,11 @@ RIGHT_CAN=$(yq '.follower.right_arm.can_port' "$YAML")
 LEFT_SERVER=$(yq '.follower.left_arm.server_port' "$YAML")
 RIGHT_SERVER=$(yq '.follower.right_arm.server_port' "$YAML")
 cameras=$(yq -c '.cameras.configs' "$YAML")
-CAMERA_PATHS=$(yq -r '.cameras.configs[] | select(has("index_or_path")) | .index_or_path' "$YAML")
 
 PYTHONPATH=src uv run python -c "from utils.connection import _free_port; _free_port('$LEFT_PORT'); _free_port('$RIGHT_PORT'); _free_port(int('$LEFT_SERVER')); _free_port(int('$RIGHT_SERVER'))"
 bash third_party/i2rt/scripts/reset_all_can.sh
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
-
-for camera in $CAMERA_PATHS; do
-    ./scripts/set_camera_profile.sh "$(readlink -f "$camera")"
-done
-
-
 
 # if [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ] && [ ! -f "$HOME/.cache/huggingface/lerobot/$REPO/meta/info.json" ]; then
 #     mv "$HOME/.cache/huggingface/lerobot/$REPO" "$HOME/.cache/huggingface/lerobot/$REPO.stale.$(date +%s)"
@@ -48,12 +42,10 @@ done
 # rm -rf /home/ethrc/.cache/huggingface/lerobot/$REPO
 
 if [ "$RESUME" != "true" ] && [ -d "$HOME/.cache/huggingface/lerobot/$REPO" ]; then
-    read -r -p "ATTENTION: You set resume to false. DELETE YOUR ENTIRE DATASET at $HOME/.cache/huggingface/lerobot/$REPO?? [y/N] " confirm
-    [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || exit 1
     rm -rf "$HOME/.cache/huggingface/lerobot/$REPO"
 fi
 
-export PYNPUT_BACKEND_KEYBOARD=uinput
+export PYNPUT_BACKEND_KEYBOARD=uinput 
 uv run lerobot-record \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
@@ -69,13 +61,12 @@ uv run lerobot-record \
     --dataset.single_task="$TASK" \
     --dataset.repo_id="$REPO" \
     --dataset.root="$HOME/.cache/huggingface/lerobot/$REPO" \
-    --dataset.push_to_hub=true \
+    --dataset.push_to_hub="$PUSH_TO_HUB" \
     --resume="$RESUME" \
     --dataset.vcodec="$VCODEC" \
     --robot.cameras="$cameras" \
-    --dataset.streaming_encoding=true \
-    --play_sounds=false
-    # --dataset.push_to_hub="$PUSH_TO_HUB" \
+    --dataset.streaming_encoding=true
+    # --dataset.push_to_hub=true \
     # --dataset.encoder_queue_maxsize=1000
     # --dataset.encoder_threads=2
     # --dataset.vcodec=libx264 \
