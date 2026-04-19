@@ -35,7 +35,7 @@ VCODEC=${VCODEC:-auto}
 # Tommmaso and Matteo's runs with augmented data:
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_blur_20260417_224504_74152/checkpoints/last} # NOT WORKING# Run 2 dark blur # does not work tested day light conditions, need to test at night with light
 POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_noise_20260417_224504_74152/checkpoints/last} # WORKS WELL # Run 2 dark noise # TESTED IN DAY LIGHT CONDITIONS, NEED TO TEST AT NIGHT WITH LIGHT
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_shadow_20260417_224504_74152/checkpoints/last}# WORKS WELL # Run 2 dark shadow # TESTED IN DAY LIGHT CONDITIONS, NEED TO TEST AT NIGHT WITH LIGHT
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_shadow_20260417_224504_74152/checkpoints/last} # WORKS WELL # Run 2 dark shadow # TESTED IN DAY LIGHT CONDITIONS, NEED TO TEST AT NIGHT WITH LIGHT
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_no_aug_20260417_224504_74152/checkpoints/last} # NOT WORKING # Run 2 no augment
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_augmented_20260417_224504_74152/checkpoints/last} # NOT working (tested in day light conditions)
 

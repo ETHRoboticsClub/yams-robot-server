@@ -66,3 +66,11 @@ EPISODE_TIME_S=20 \
 RESET_TIME_S=10 \
 PUSH_TO_HUB=false \
 ./scripts/inference.sh --log
+
+
+
+sudo -i
+cd /home/ethrc/Desktop/yams-robot-server
+hf auth whoami
+NUM_EPISODES=1 EPISODE_TIME_S=10 RESET_TIME_S=0 PUSH_TO_HUB=true ./scripts/record.sh
+hf datasets info ETHRC/yams-carton-box-closing

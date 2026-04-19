@@ -24,6 +24,7 @@ git submodule update --init --recursive
 ```bash
 uv run python scripts/check_setup.py
 ```
+## IF WORKS, YOU CAN SKIP THE NEXT PART.
 
 > **Important:** Read this before running any teleoperation or recording commands.
 - Turn on both power strips. Follower fans should start making noise.
@@ -31,8 +32,9 @@ uv run python scripts/check_setup.py
   - If you need, reset CAN busses with this: `sudo sh third_party/i2rt/scripts/reset_all_can.sh`.
 - Set up leader USBs with `sudo .venv/bin/python scripts/setup_leader_ports.py`.
 - Precisely place the leader arms in the zero position for calibration.
-- Precisely place the follower arms in the zero position for calibration.
-- Calibrate follower arms with `uv run scripts/compute_offsets.py`.
+- Calibrate leader arms with `uv run python scripts/compute_offsets.py`.
+- Follower zeros are stored on the DM motors, not in the leader offset YAMLs. If a follower joint jumps when teleop starts, place that follower joint in mechanical zero and reset that motor zero.
+  - Example right joint 3: `uv run python third_party/i2rt/i2rt/motor_config_tool/set_zero.py --channel <right_arm.can_port> --motor_id 3`.
 - Identify the correct camera ids by running `uv run lerobot-find-cameras`. Make sure mapping is correct in `arms.yaml` in the `index_or_path` field. You can find their images in `outputs/captured_images/`.
 - Make sure the output images of the wrist cameras look properly exposed. If needed, tweak the fixed baseline in `scripts/set_camera_profile.sh` or the runtime auto-exposure knobs in `configs/arms.yaml`.
 - Type `realsense-viewer`, load the config from configs/realsense.json, and make sure it looks good. If it looks bad, overwrite the configs/realsense.json with better settings.

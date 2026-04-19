@@ -304,23 +304,37 @@ def check_opencv_camera(name: str, camera: dict) -> None:
 
 def check_realsense_camera(name: str, camera: dict) -> None:
     serial = str(camera["serial_number_or_name"])
-    serials = {
-        device.get_info(rs.camera_info.serial_number)
-        for device in rs.context().query_devices()
-    }
+    devices = list(rs.context().query_devices())
+    serials = {device.get_info(rs.camera_info.serial_number) for device in devices}
     if serial not in serials:
-        raise RuntimeError(f"{name} RealSense not found: {serial}")
+        found = ", ".join(serials) or "none"
+        _, usb = run_command_text(["lsusb"])
+        raise RuntimeError(
+            f"{name} RealSense not found: {serial}\n"
+            f"RealSense serials visible to pyrealsense2: {found}\n"
+            "Expected to see an Intel RealSense device in lsusb. If it is missing, "
+            "replug the RealSense into a USB3 port/cable and avoid passive hubs. "
+            "If it still does not show up, try a different cable; sometimes unplugging "
+            "and plugging it back in a few times randomly makes it enumerate.\n"
+            f"lsusb output:\n{usb}"
+        )
 
 
 def check_cameras(config: dict) -> None:
+    errors = []
     for name, camera in config.get("cameras", {}).get("configs", {}).items():
         camera_type = camera.get("type")
-        if camera_type in ("opencv", "opencv-cached"):
-            check_opencv_camera(name, camera)
-        elif camera_type == "intelrealsense-cached":
-            check_realsense_camera(name, camera)
-        else:
-            raise RuntimeError(f"{name} has unsupported camera type: {camera_type}")
+        try:
+            if camera_type in ("opencv", "opencv-cached"):
+                check_opencv_camera(name, camera)
+            elif camera_type == "intelrealsense-cached":
+                check_realsense_camera(name, camera)
+            else:
+                raise RuntimeError(f"{name} has unsupported camera type: {camera_type}")
+        except RuntimeError as exc:
+            errors.append(f"{name}: {exc}")
+    if errors:
+        raise RuntimeError("\n\n".join(errors))
     print("Okay, USB cameras receiving frames")
 
 
