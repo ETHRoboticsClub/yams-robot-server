@@ -13,7 +13,6 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
-REPO=${REPO:-ETHRC/eval_towelspring26_test}
 RESUME=${RESUME:-false}
 PUSH_TO_HUB=${PUSH_TO_HUB:-true}
 NEW_REPO=${NEW_REPO:-false}
@@ -22,22 +21,48 @@ DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
 NUM_EPISODES=${NUM_EPISODES:-100}
 EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-0}
-TASK=${TASK:-Fold the towel.}
 VCODEC=${VCODEC:-auto}
-# Baraqs and previous year's runs:
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2/checkpoints/last} # This can also be huggingface path
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/realsense_1/checkpoints/last} # this was trained on ETHRC/towelspring26_3-trimmed 
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2/checkpoints/last} # WORKS WELL (when light is on AT NIGHT), trained on ETHRC/towelspring26_2 DOES NOT WORK WELL IN DAY LIGHT CONDITIONS
-# Run 2 variants from the April 17/18 training batch (all use latest checkpoints/last)
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/realsense_1_notrim/checkpoints/last}
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/run1/pretrained_model} # This can also be huggingface path
 
-# Tommmaso and Matteo's runs with augmented data:
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_blur_20260417_224504_74152/checkpoints/last} # NOT WORKING# Run 2 dark blur # does not work tested day light conditions, need to test at night with light
-POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_noise_20260417_224504_74152/checkpoints/last} # WORKS WELL # Run 2 dark noise # TESTED IN DAY LIGHT CONDITIONS, NEED TO TEST AT NIGHT WITH LIGHT
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_shadow_20260417_224504_74152/checkpoints/last} # WORKS WELL # Run 2 dark shadow # TESTED IN DAY LIGHT CONDITIONS, NEED TO TEST AT NIGHT WITH LIGHT
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_no_aug_20260417_224504_74152/checkpoints/last} # NOT WORKING # Run 2 no augment
-# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_augmented_20260417_224504_74152/checkpoints/last} # NOT working (tested in day light conditions)
+# =============================================================================
+# TASK: TOWEL FOLDING
+# Dataset: ETHRC/towelspring26_2
+# Recommended: EPISODE_TIME_S=20  RESET_TIME_S=10
+# To activate: uncomment the REPO, TASK and one POLICY_PATH below,
+#              comment out the CARTON BOX section.
+# =============================================================================
+# REPO=${REPO:-ETHRC/eval_towelspring26_test}
+# TASK=${TASK:-Fold the towel.}
+#
+# -- Baraq / previous runs --
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2/checkpoints/last} # WORKS WELL at night with light ON, NOT in daylight
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/realsense_1/checkpoints/last} # trained on towelspring26_3-trimmed
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/realsense_1_notrim/checkpoints/last}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/run1/pretrained_model}
+#
+# -- April 17/18 augmentation batch (towelspring26_2) --
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_noise_20260417_224504_74152/checkpoints/last}   # WORKS WELL - daylight tested
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_shadow_20260417_224504_74152/checkpoints/last}  # WORKS WELL - daylight tested
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_dark_blur_20260417_224504_74152/checkpoints/last}    # NOT WORKING
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_no_aug_20260417_224504_74152/checkpoints/last}       # NOT WORKING
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/run2_augmented_20260417_224504_74152/checkpoints/last}    # NOT WORKING
+
+# =============================================================================
+# TASK: CARTON BOX CLOSING
+# Dataset: ETHRC/yams-carton-box-closing-mon-tom-mat  |  EPISODE_TIME_S=120  |  RESET_TIME_S=10
+# To activate: uncomment the REPO, TASK, EPISODE_TIME_S, RESET_TIME_S and one POLICY_PATH below,
+#              comment out the TOWEL FOLDING section.
+# =============================================================================
+REPO=${REPO:-ETHRC/eval_carton_box_test}
+TASK=${TASK:-Pick & Place and Closing a Box}
+EPISODE_TIME_S=${EPISODE_TIME_S:-120}
+RESET_TIME_S=${RESET_TIME_S:-10}
+#
+# -- April 20 carton box runs --
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_no_aug/checkpoints/last}  # NOT WORKING - doesn't pick up object, lifts too low
+POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_no_aug_full_20260420_221222_217313/checkpoints/last} # Doesn't work (but seems the best so far)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_dark_noise_strong_full_20260420_221222_217313/checkpoints/last} # Doesn't work - way to jerky (worse than the two previous ones)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_dark_noise_full_20260420_221222_217313/checkpoints/last} # Doesn't work - same as last one
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_dark_shadow_full_20260420_221222_217313/checkpoints/last} # Doesn't work
 
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
@@ -73,7 +98,13 @@ echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 
 for camera in $CAMERA_PATHS; do
-    ./scripts/set_camera_profile.sh "$(readlink -f "$camera")"
+    dev="$(readlink -f "$camera")"
+    current_ae=$(v4l2-ctl -d "$dev" --get-ctrl=auto_exposure 2>/dev/null | awk -F: '{print $2}' | tr -d ' ')
+    if [ "$current_ae" != "1" ]; then
+        ./scripts/set_camera_profile.sh "$dev"
+    else
+        echo "Camera profile already applied to $dev, skipping"
+    fi
 done
 
 if [ "$RESUME" != "true" ] && [ -d "$DATASET_ROOT" ]; then

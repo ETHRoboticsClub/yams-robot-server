@@ -2,6 +2,7 @@ import logging
 import time
 from pathlib import Path
 
+import cv2
 import numpy as np
 from lerobot.utils.errors import DeviceNotConnectedError
 
@@ -113,6 +114,39 @@ class OpenCVCameraCached(OpenCVCamera):
             period_s=self.config.auto_exposure_period_s,
         )
 
+    def _reconnect_hardware(self, max_attempts: int = 10, retry_delay: float = 2.0) -> bool:
+        """Re-open the VideoCapture after a USB reset without touching the read thread."""
+        logger.warning(f"{self} attempting hardware reconnect...")
+        if self.videocapture is not None:
+            self.videocapture.release()
+            self.videocapture = None
+        with self.frame_lock:
+            self.latest_frame = None
+            self.latest_timestamp = None
+            self.new_frame_event.clear()
+        self.ready = False
+
+        for attempt in range(max_attempts):
+            if self.stop_event is not None and self.stop_event.is_set():
+                return False
+            time.sleep(retry_delay)
+            try:
+                cap = cv2.VideoCapture(self.index_or_path, self.backend)
+                if not cap.isOpened():
+                    cap.release()
+                    logger.warning(f"{self} reconnect attempt {attempt + 1}/{max_attempts}: device not ready")
+                    continue
+                self.videocapture = cap
+                self._configure_capture_settings()
+                self.auto_exposure = self._build_auto_exposure()
+                logger.info(f"{self} reconnected on attempt {attempt + 1}.")
+                return True
+            except Exception as e:
+                logger.warning(f"{self} reconnect attempt {attempt + 1}/{max_attempts} failed: {e}")
+
+        logger.error(f"{self} failed to reconnect after {max_attempts} attempts.")
+        return False
+
     def _read_loop(self) -> None:
         if self.stop_event is None:
             raise RuntimeError(f"{self}: stop_event is not initialized before starting read loop.")
@@ -130,20 +164,25 @@ class OpenCVCameraCached(OpenCVCamera):
                 self.new_frame_event.set()
 
                 if self.auto_exposure is not None:
-                    exposure = self.auto_exposure.tick(processed_frame)
-                    if exposure is not None:
-                        logger.info("%s exposure_time_absolute=%s", self, exposure)
+                    try:
+                        exposure = self.auto_exposure.tick(processed_frame)
+                        if exposure is not None:
+                            logger.info("%s exposure_time_absolute=%s", self, exposure)
+                    except Exception as e:
+                        logger.warning(f"{self} auto-exposure error, disabling: {e}")
+                        self.auto_exposure = None
 
                 failure_count = 0
 
             except DeviceNotConnectedError:
                 break
             except Exception as e:
-                if failure_count <= 10:
-                    failure_count += 1
-                    logger.warning(f"Error reading frame in background thread for {self}: {e}")
-                else:
-                    raise RuntimeError(f"{self} exceeded maximum consecutive read failures.") from e
+                failure_count += 1
+                logger.warning(f"Error reading frame in background thread for {self}: {e}")
+                if failure_count > 10:
+                    if not self._reconnect_hardware():
+                        break
+                    failure_count = 0
 
 
 if __name__ == "__main__":
