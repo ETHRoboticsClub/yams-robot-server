@@ -5,7 +5,7 @@ Before teleop/recording, run the setup checker:
 uv run python scripts/check_setup.py
 ```
 
-If this passes, you can proceed with the following teleop/recording commands. If something doesn't work, walk through the [Troubleshooting / pre-flight checklist](#troubleshooting--pre-flight-checklist).
+If this passes, you can proceed with the following teleop/recording commands. If something doesn't work, walk through the [Troubleshooting checklist](#teleop-troubleshooting-checklist).
 
 ```bash
 ./scripts/teleop.sh
@@ -60,7 +60,7 @@ Use `uv run ...` for all Python entry points.
 
 ---
 
-## Teleop troubleshooting / pre-flight checklist
+## Teleop troubleshooting checklist
 
 Only needed if teleop or recording isn't working. Run through these on the robot machine:
 
