@@ -1,6 +1,6 @@
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -50,6 +50,15 @@ def _load_motors(side: str) -> dict[str, Motor]:
         for name, cfg in motor_configs.items()
     }
 
+@dataclass
+class GravityCompConfig:
+    enabled: bool = False
+    joints: list[str] = field(default_factory=lambda: ["joint_2", "joint_3"])
+
+def _load_gravity_compensation(side: str) -> GravityCompConfig:
+    with open(ARMS_CONFIG_PATH, "r") as f:
+        arm = yaml.safe_load(f)["leader"][f"{side}_arm"]
+    return GravityCompConfig(**arm.get("gravity_compensation", {}))
 
 @TeleoperatorConfig.register_subclass("yams_leader")
 @dataclass
@@ -60,7 +69,6 @@ class YamsLeaderConfig(TeleoperatorConfig):
     calibration_path: str = "src/lerobot_teleoperator_gello/calibration"
     side: str = "right"
 
-
 class YamsLeader(Teleoperator):
     config_class = YamsLeaderConfig
     name = "yams_leader"
@@ -69,6 +77,7 @@ class YamsLeader(Teleoperator):
         super().__init__(config)
         self.config = config
         motors = _load_motors(self.config.side)
+        self.gc = _load_gravity_compensation(self.config.side)
 
         self.bus = DynamixelMotorsBus(
             port=self.config.port,
@@ -116,19 +125,19 @@ class YamsLeader(Teleoperator):
         self.bus.disable_torque()
         self.bus.configure_motors()
 
-        # Enable torque and set to position to open
-        self.bus.write("Torque_Enable", "gripper", 0, normalize=False)
-        self.bus.write(
-            "Operating_Mode",
-            "gripper",
-            OperatingMode.CURRENT_POSITION.value,
-            normalize=False,
-        )
-        self.bus.write("Current_Limit", "gripper", 100, normalize=False)
-        self.bus.write("Torque_Enable", "gripper", 1, normalize=False)
-        self.bus.write(
-            "Goal_Position", "gripper", self.config.gripper_open_pos, normalize=False
-        )
+        # Gripper: Enable torque and set gripper position to open
+        self.bus.write("Operating_Mode", "gripper", OperatingMode.CURRENT_POSITION.value)
+        self.bus.write("Current_Limit", "gripper", 100)
+        self.bus.enable_torque("gripper")
+        self.bus.write("Goal_Position", "gripper", self.config.gripper_open_pos, normalize=False)
+
+        # Gravity Compensation: Enable torque control for specified joints
+        if self.gc.enabled:
+            for joint in self.gc.joints:
+                self.bus.write("Operating_Mode", joint, OperatingMode.CURRENT.value)
+                self.bus.write("Current_Limit", joint, 250)
+                self.bus.write("Goal_Current", joint, 0)
+            self.bus.enable_torque(self.gc.joints)
 
     def setup_motors(self) -> None:
         for motor in self.bus.motors:

@@ -44,6 +44,9 @@ follower:
 leader:
   left_arm:
     port: /dev/leader-left
+    gravity_compensation:
+      enabled: true
+      joints: ["joint_2", "joint_3"]
     motors:
       joint_1:
         id: 1
@@ -88,6 +91,9 @@ leader:
         label: Gripper
   right_arm:
     port: /dev/leader-right
+    gravity_compensation:
+      enabled: true
+      joints: ["joint_2", "joint_3"]
     motors:
       joint_1:
         id: 8
