@@ -97,9 +97,14 @@ class OpenCVCameraCached(OpenCVCamera):
         device = Path(self.index_or_path).resolve()
         if not self.config.auto_exposure_enabled or not str(device).startswith("/dev/video"):
             return None
+        try:
+            exposure = get_exposure(device)
+        except Exception:
+            logger.warning(f"{device} does not support exposure_time_absolute, disabling auto-exposure")
+            return None
         return CameraAutoExposure(
             device=device,
-            exposure=get_exposure(device),
+            exposure=exposure,
             target=self.config.auto_exposure_target,
             deadband=self.config.auto_exposure_deadband,
             speed=self.config.auto_exposure_speed,

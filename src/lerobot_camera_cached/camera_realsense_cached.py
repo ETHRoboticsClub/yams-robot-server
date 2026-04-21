@@ -1,4 +1,6 @@
+import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -12,6 +14,23 @@ from .realsense_cached_config import RealSenseCameraCachedConfig
 from utils.connection import _free_v4l_devices
 
 logger = logging.getLogger(__name__)
+UNSUPPORTED_PROFILE_KEY = re.compile(r"([A-Za-z0-9_-]+) key is not supported")
+
+
+def _remove_unsupported_key(profile_text: str, error: Exception) -> str | None:
+    match = UNSUPPORTED_PROFILE_KEY.search(str(error))
+    if not match:
+        return None
+
+    key = match.group(1)
+    profile = json.loads(profile_text)
+    params = profile.get("parameters", {})
+    if key not in params:
+        return None
+
+    params.pop(key)
+    logger.warning("Skipping unsupported RealSense profile key: %s", key)
+    return json.dumps(profile)
 
 
 class RealSenseCameraCached(RealSenseCamera):
@@ -53,7 +72,8 @@ class RealSenseCameraCached(RealSenseCamera):
             return
 
         profile_text = Path(profile_path).read_text()
-        for attempt in range(2):
+        busy_retry = True
+        for _ in range(20):
             device = self._wait_for_device()
             advanced = rs.rs400_advanced_mode(device)
             if not advanced.is_enabled():
@@ -65,10 +85,18 @@ class RealSenseCameraCached(RealSenseCamera):
                 advanced.load_json(profile_text)
                 break
             except RuntimeError as exc:
-                if attempt == 1 or "Device or resource busy" not in str(exc):
-                    raise
-                logger.warning("%s profile load busy, freeing RealSense video nodes and retrying", self)
-                self._reset_busy_device(device)
+                cleaned = _remove_unsupported_key(profile_text, exc)
+                if cleaned is not None:
+                    profile_text = cleaned
+                    continue
+                if busy_retry and "Device or resource busy" in str(exc):
+                    busy_retry = False
+                    logger.warning("%s profile load busy, freeing RealSense video nodes and retrying", self)
+                    self._reset_busy_device(device)
+                    continue
+                raise
+        else:
+            raise RuntimeError(f"{self} profile load failed after dropping unsupported keys.")
         logger.info("Loaded RealSense profile from %s", profile_path)
 
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:

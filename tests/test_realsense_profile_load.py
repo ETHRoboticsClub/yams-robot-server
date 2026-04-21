@@ -167,6 +167,28 @@ class TestRealSenseProfileLoad(unittest.TestCase):
             self.assertEqual(device.reset_calls, 1)
             self.assertEqual(advanced.loaded, '{"x":1}')
 
+    def test_load_profile_skips_unsupported_keys(self):
+        import lerobot_camera_cached.camera_realsense_cached as mod
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "realsense.json"
+            path.write_text('{"parameters":{"bad-key":"1","good-key":"2"}}')
+
+            advanced = _Advanced(errors=[RuntimeError("bad-key key is not supported by the connected device!")])
+            mod.rs = types.SimpleNamespace(
+                camera_info=types.SimpleNamespace(serial_number="serial_number"),
+                context=lambda: types.SimpleNamespace(query_devices=lambda: [_Device("abc")]),
+                rs400_advanced_mode=lambda device: advanced,
+            )
+
+            cam = RealSenseCameraCached.__new__(RealSenseCameraCached)
+            cam.serial_number = "abc"
+            cam.config = types.SimpleNamespace(profile_path=path)
+            cam._load_profile()
+
+            self.assertIn('"good-key": "2"', advanced.loaded)
+            self.assertNotIn("bad-key", advanced.loaded)
+
 
 if __name__ == "__main__":
     unittest.main()
