@@ -19,7 +19,7 @@ dependencies = [
     "lerobot_teleoperator_gello",
     "lerobot_camera_zed",
     "lerobot_camera_cached",
-    "pyrealsense2>=2.57.7.10387",
+    "pyrealsense2>=2.57.7.10387; sys_platform == 'linux'",
     "torch==2.7.1",
     "torchvision==0.22.1"
 ]
