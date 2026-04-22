@@ -21,7 +21,8 @@ dependencies = [
     "lerobot_camera_cached",
     "pyrealsense2>=2.57.7.10387; sys_platform == 'linux'",
     "torch==2.7.1",
-    "torchvision==0.22.1"
+    "torchvision==0.22.1",
+    "pin>=3.7.0",
 ]
 
 [[tool.uv.index]]
