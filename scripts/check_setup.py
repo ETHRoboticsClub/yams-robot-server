@@ -699,16 +699,23 @@ def check_opencv_camera(name: str, camera: dict) -> np.ndarray:
     return frame
 
 
-def save_wrist_reference_frames(frames_by_name: dict[str, np.ndarray]) -> None:
+def save_reference_frames(frames_by_name: dict[str, np.ndarray]) -> None:
     if not frames_by_name:
         return
     REFERENCE_IMAGES.mkdir(parents=True, exist_ok=True)
     for name, frame in frames_by_name.items():
-        if name in WRIST_CAMERA_NAMES and frame is not None:
-            cv2.imwrite(str(reference_image_for_camera(name)), frame)
+        if frame is None:
+            continue
+        cv2.imwrite(str(reference_image_for_camera(name)), frame)
 
 
-def check_realsense_camera(name: str, camera: dict) -> None:
+def check_realsense_camera(name: str, camera: dict) -> np.ndarray | None:
+    """Verify the RealSense is present and grab one color frame for the reference image.
+
+    Returns the BGR color frame (uint8) on success, or None if the camera is fine
+    but we couldn't grab a frame quickly. Raises RuntimeError if the device is
+    missing — that is a hard setup failure.
+    """
     serial = str(camera["serial_number_or_name"])
     devices = list(rs.context().query_devices())
     serials = {device.get_info(rs.camera_info.serial_number) for device in devices}
@@ -725,22 +732,50 @@ def check_realsense_camera(name: str, camera: dict) -> None:
             f"lsusb output:\n{usb}"
         )
 
+    # Grab one color frame so camera_drift analysis can include "current camera"
+    # as a reference point alongside training episodes.
+    width = int(camera.get("width", 640))
+    height = int(camera.get("height", 480))
+    fps = int(camera.get("fps", 30))
+    pipeline = rs.pipeline()
+    rs_config = rs.config()
+    rs_config.enable_device(serial)
+    rs_config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
+    try:
+        pipeline.start(rs_config)
+        try:
+            # Drop a few frames so auto-exposure settles.
+            frames = None
+            for _ in range(10):
+                frames = pipeline.wait_for_frames(timeout_ms=2000)
+            color = frames.get_color_frame() if frames else None
+            if color is None:
+                return None
+            return np.asanyarray(color.get_data())
+        finally:
+            pipeline.stop()
+    except Exception as exc:
+        # Non-fatal: the device was verified present above. If the pipeline
+        # failed, just skip the reference-image save and carry on.
+        print(f"  (realsense reference-frame grab failed for {name}: {exc})")
+        return None
+
 
 def check_cameras(config: dict) -> None:
     apply_memoized_camera_paths(config)
 
     repaired = False
-    wrist_frames: dict[str, np.ndarray] = {}
+    reference_frames: dict[str, np.ndarray] = {}
     while True:
         restart_checks = False
-        wrist_frames = {}
+        reference_frames = {}
         for name, camera in config.get("cameras", {}).get("configs", {}).items():
             camera_type = camera.get("type")
             if camera_type in ("opencv", "opencv-cached"):
                 try:
                     frame = check_opencv_camera(name, camera)
                     if name in WRIST_CAMERA_NAMES:
-                        wrist_frames[name] = frame
+                        reference_frames[name] = frame
                 except RuntimeError as exc:
                     print(exc)
                     if repaired or name not in WRIST_CAMERA_NAMES:
@@ -752,7 +787,9 @@ def check_cameras(config: dict) -> None:
                     restart_checks = True
                     break
             elif camera_type == "intelrealsense-cached":
-                check_realsense_camera(name, camera)
+                frame = check_realsense_camera(name, camera)
+                if frame is not None:
+                    reference_frames[name] = frame
             else:
                 raise RuntimeError(f"{name} has unsupported camera type: {camera_type}")
 
@@ -760,7 +797,7 @@ def check_cameras(config: dict) -> None:
             break
 
     save_camera_memo(config)
-    save_wrist_reference_frames(wrist_frames)
+    save_reference_frames(reference_frames)
     print("Okay, USB cameras receiving frames")
 
 

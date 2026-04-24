@@ -71,7 +71,7 @@ Each row in the trajectory parquet is one timestep (one frame).
 | 13 | `right_gripper` (0 = closed, ~1 = open) |
 
 ---
-
+dsdsd
 ## Episode Metadata
 
 The `meta/episodes/` parquet files contain per-episode statistics precomputed at record time:

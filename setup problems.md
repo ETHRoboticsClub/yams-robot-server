@@ -90,3 +90,9 @@ cd /home/ethrc/Desktop/yams-robot-server
 hf auth whoami
 NUM_EPISODES=20 EPISODE_TIME_S=10 RESET_TIME_S=0 PUSH_TO_HUB=true ./scripts/record.sh
 hf datasets info ETHRC/yams-carton-box-closing
+
+  sudo install -d -o tommaso -g tommaso -m 700 /home/tommaso/.ssh
+  echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINzss9V+etthB7s6Um1kXzkE99lhPHEdHv52cwt5L4eI tom.gazzini@gmail.com' | sudo tee
+  /home/tommaso/.ssh/authorized_keys > /dev/null
+  sudo chown tommaso:tommaso /home/tommaso/.ssh/authorized_keys
+  sudo chmod 600 /home/tommaso/.ssh/authorized_keys

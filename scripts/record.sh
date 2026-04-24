@@ -17,8 +17,8 @@ if pgrep -f "realsense-viewer" >/dev/null; then
 fi
 
 YAML=configs/arms.yaml
-REPO=ETHRC/yams-carton-box-closing-tue-tom-mat-2
-RESUME=${RESUME:-false}
+REPO=ETHRC/yams-carton-box-closing-wed-tom-elias
+RESUME=${RESUME:-true}
 PUSH_TO_HUB=${PUSH_TO_HUB:-true}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
 DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}

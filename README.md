@@ -16,6 +16,8 @@ sudo -i
 cd /home/ethrc/Desktop/yams-robot-server
 ./scripts/record.sh
 ```
+#command to record episodes 
+NUM_EPISODES=15 EPISODE_TIME_S=90 PUSH_TO_HUB=false bash scripts/record.sh --log
 
 ---
 

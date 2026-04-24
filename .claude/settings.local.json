@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(v4l2-ctl -d /dev/video4 --list-ctrls)",
+      "Skill(update-config)",
+      "Bash(sudo sh *)",
+      "Bash(bash scripts/teleop.sh)",
+      "Bash(v4l2-ctl --list-devices)",
+      "Bash(udevadm info *)",
+      "Read(//home/ethrc/**)",
+      "Bash(fuser /dev/video3 /dev/video8 /dev/video11 /dev/video0 /dev/video4 /dev/video6 /dev/video7 /dev/video9 /dev/video12 /dev/video13)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(dmesg --since \"1 hour ago\")",
+      "Bash(dmesg)",
+      "Bash(journalctl -k --since \"1 hour ago\")",
+      "Bash(journalctl -k --since \"16:44\" --until \"16:50\")",
+      "Bash(python3 -c \"import inspect, sys; sys.path.insert\\(0, '/home/ethrc/Desktop/yams-robot-server/.venv/lib/python3.12/site-packages'\\); from lerobot.cameras.opencv.camera_opencv import OpenCVCamera; print\\(inspect.getsource\\(OpenCVCamera.connect\\)\\)\")",
+      "Bash(xargs ls *)",
+      "Bash(uv run *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('total episodes:', d.get\\('total_episodes'\\)\\); print\\('total frames:', d.get\\('total_frames'\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('episodes:', d.get\\('total_episodes'\\)\\); print\\('frames:', d.get\\('total_frames'\\)\\); print\\('fps:', d.get\\('fps'\\)\\); print\\('features:', list\\(d.get\\('features',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(tmux capture-pane *)",
+      "Bash(aws ec2 *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('episodes:', d.get\\('total_episodes'\\)\\); print\\('frames:', d.get\\('total_frames'\\)\\); print\\('fps:', d.get\\('fps'\\)\\)\")"
+    ]
+  }
+}

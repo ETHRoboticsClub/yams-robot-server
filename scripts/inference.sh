@@ -59,10 +59,29 @@ RESET_TIME_S=${RESET_TIME_S:-10}
 #
 # -- April 20 carton box runs --
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_no_aug/checkpoints/last}  # NOT WORKING - doesn't pick up object, lifts too low
-POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_no_aug_full_20260420_221222_217313/checkpoints/last} # Doesn't work (but seems the best so far)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_no_aug_full_20260420_221222_217313/checkpoints/last} # Doesn't work (but seems the best so far)
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_dark_noise_strong_full_20260420_221222_217313/checkpoints/last} # Doesn't work - way to jerky (worse than the two previous ones)
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_dark_noise_full_20260420_221222_217313/checkpoints/last} # Doesn't work - same as last one
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/carton_dark_shadow_full_20260420_221222_217313/checkpoints/last} # Doesn't work
+#
+# -- April 22 suspicion-bucket sweep (RUN_ID 20260422_023919_440097) --
+# Dataset: ETHRC/yams-carton-box-closing-combined; each bucket uses a different subset:
+#   S1=22 eps (strictest), S2=38, S3=53, S4=65, S5=70 (most permissive). x {no_aug, kitchen_sink}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sweep_s5_kitchen_sink_20260422_023919_440097/checkpoints/last}  # 70 eps # doesn't work
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sweep_s4_no_aug_20260422_023919_440097/checkpoints/last}        # 65 eps # doesn't work
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sweep_s4_kitchen_sink_20260422_023919_440097/checkpoints/last}  # 65 eps # doesn't work
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sweep_s3_no_aug_20260422_023919_440097/checkpoints/last}        # 53 eps # doesn't work
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sweep_s3_kitchen_sink_20260422_023919_440097/checkpoints/last}  # 53 eps # doesn't work
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sweep_s2_no_aug_20260422_023919_440097/checkpoints/last}  # 38 eps — most promising from the S1..S5 sweep
+#
+# -- April 23 mtw120 (RUN_ID 20260422_235757_131115) --
+# Dataset: ETHRC/yams-carton-box-closing-mon-tue-wed, 120 eps (122 merged minus aborts 21+71), 15K steps
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_no_aug_20260422_235757_131115/checkpoints/last}  # no_aug on full 120-ep dataset
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_dark_noise_20260423_014430_153499/checkpoints/last}   #  
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_dark_shadow_20260423_014430_153499/checkpoints/last}  # 
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_heavy_aug_20260423_014430_153499/checkpoints/last}    # 25k training steps heavy augm
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_kitchen_sink_20260423_014430_153499/checkpoints/last} #
+POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_max_aug_20260423_014430_153499/checkpoints/last}    # 
 
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
