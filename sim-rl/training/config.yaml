@@ -1,0 +1,74 @@
+# ============================================================
+#  Cube Grasp PPO Training Config
+#  Edit values here — no need to touch Python code.
+# ============================================================
+
+# --- Runtime ---
+device: cpu             # cpu or cuda
+seed: 42
+checkpoint: null        # path to .pt file to resume from
+
+# --- Environment ---
+env:
+  num_envs: 64
+  max_episode_steps: 400          # control steps per episode before timeout
+  sim_dt: 0.002                   # MuJoCo physics timestep (seconds)
+  ctrl_dt: 0.02                   # control period (seconds); must be >= sim_dt
+  action_scale: 0.05              # radians per step for joint deltas
+
+  # Cube spawn region (meters, world frame)
+  # arm1 at y=0, arm2 at y=-0.57
+  # spans full workspace in front of both arms
+  cube_x_range: [0.10, 0.40]
+  cube_y_range: [-0.57, 0.0]
+
+# --- Reward (staged, each gated on the previous) ---
+reward:
+  # Stage weights
+  w_reach: 1.0                    # 1. reach toward cube (always active)
+  w_align: 0.3                    # 2. gripper pointing down (always active)
+  w_close: 0.5                    # 3. close gripper when near (gated on proximity)
+  w_contact: 1.0                  # 4. tip touching cube (gated on gripper closing)
+  w_grasp: 3.0                    # 5. cube clamped between both tips (gated on contact + between)
+  w_lift: 4.0                     # 6. lift cube (gated on grasp)
+
+  # Penalties
+  c_action: 0.01                  # action norm penalty on active arm
+  c_off_arm: 0.05                 # penalize off-arm deviating from home + moving
+  c_time: 0.005                   # per-step time penalty
+
+  # Bonus
+  bonus_lift: 10.0                # one-time bonus when cube reaches lift_target height
+
+  # Thresholds
+  reach_tanh_scale: 20.0          # sharpness of reach reward
+  close_threshold: 0.08           # distance (m) to start rewarding gripper closing
+  lift_target: 0.08               # height (m) above table for success
+
+# --- PPO ---
+ppo:
+  learning_rate: 3.0e-4
+  num_learning_epochs: 5
+  num_mini_batches: 4
+  clip_param: 0.2
+  gamma: 0.99
+  lam: 0.95                       # GAE lambda
+  value_loss_coef: 1.0
+  entropy_coef: 0.005
+  max_grad_norm: 1.0
+  use_clipped_value_loss: true
+  schedule: adaptive               # adaptive or fixed
+  desired_kl: 0.01                 # target KL for adaptive LR
+
+# --- Network ---
+network:
+  actor_hidden_dims: [64, 64, 64]
+  critic_hidden_dims: [64, 64, 64]
+  activation: elu                  # elu, relu, tanh
+
+# --- Training loop ---
+runner:
+  num_steps_per_env: 40            # rollout length per iteration
+  max_iterations: 5000
+  save_interval: 500
+  log_interval: 5
