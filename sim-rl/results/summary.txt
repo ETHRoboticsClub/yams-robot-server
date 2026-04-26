@@ -1,0 +1,6 @@
+Episodes:      32
+Mean return:   379.41 +/- 76.77
+Median return: 407.61
+Min / Max:     210.57 / 485.65
+Mean length:   400.0
+Success rate:  0.0%

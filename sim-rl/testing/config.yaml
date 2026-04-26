@@ -1,0 +1,19 @@
+# ============================================================
+#  Policy Evaluation Config
+# ============================================================
+
+# --- Checkpoint ---
+checkpoint: ../checkpoints/ckpt_final.pt
+
+# --- Runtime ---
+device: cpu
+render: true                  # open MuJoCo viewer for one episode
+episodes: 32                  # number of eval episodes to run
+
+# --- Network (must match training) ---
+# These are read from the training config by default.
+# Override here only if you moved/renamed the training config.
+training_config: ../training/config.yaml
+
+# --- Output ---
+out_dir: ../results
