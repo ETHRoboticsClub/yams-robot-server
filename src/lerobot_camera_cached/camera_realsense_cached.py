@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -40,6 +41,12 @@ class RealSenseCameraCached(RealSenseCamera):
         self.ready = False
         self.latest_frame_time = 0.0
         self.last_frame = np.zeros([self.config.height, self.config.width, 3], np.uint8)
+        # Depth snapshot captured atomically with the color frame returned by
+        # async_read(). Callers (e.g. the record-with-depth sidecar writer)
+        # pop it after each get_observation() so color and depth in the saved
+        # dataset come from the same read-loop iteration.
+        self._depth_snapshot_lock = threading.Lock()
+        self._last_depth_snapshot: NDArray[Any] | None = None
 
     def _find_device(self) -> Any:
         for device in rs.context().query_devices():
@@ -99,22 +106,48 @@ class RealSenseCameraCached(RealSenseCamera):
             raise RuntimeError(f"{self} profile load failed after dropping unsupported keys.")
         logger.info("Loaded RealSense profile from %s", profile_path)
 
+    def _snapshot_pair_locked(self) -> NDArray[Any] | None:
+        """Atomically grab the current (color, depth) pair under frame_lock.
+
+        Returns the color frame and stashes the matching depth frame in
+        _last_depth_snapshot. The parent class's _read_loop updates color
+        and depth together under the same lock, so pairs snapshotted here
+        come from one read-loop iteration — no drift between the channels
+        that get persisted as the "same frame" of the dataset.
+        """
+        with self.frame_lock:
+            color = self.latest_color_frame
+            depth = self.latest_depth_frame if self.use_depth else None
+        if depth is not None:
+            depth_copy = depth.copy()
+            with self._depth_snapshot_lock:
+                self._last_depth_snapshot = depth_copy
+        return color
+
+    def pop_depth_snapshot(self) -> NDArray[Any] | None:
+        """Return and clear the depth snapshot stashed by the last async_read()."""
+        with self._depth_snapshot_lock:
+            snap = self._last_depth_snapshot
+            self._last_depth_snapshot = None
+        return snap
+
     def async_read(self, timeout_ms: float = 200) -> NDArray[Any]:
         if self.thread is None or not self.thread.is_alive():
             raise RuntimeError(f"{self} read thread is not running.")
 
-        frame = self.latest_color_frame
         if (
             self.ready
-            and frame is not None
+            and self.latest_color_frame is not None
             and time.monotonic() - self.latest_frame_time <= timeout_ms / 1000.0
         ):
-            self.last_frame = frame
-            return frame
+            frame = self._snapshot_pair_locked()
+            if frame is not None:
+                self.last_frame = frame
+                return frame
 
         timeout_s = timeout_ms / 1000.0
         if self.new_frame_event.wait(timeout=timeout_s):
-            frame = self.latest_color_frame
+            frame = self._snapshot_pair_locked()
             if frame is not None:
                 self.ready = True
                 self.latest_frame_time = time.monotonic()

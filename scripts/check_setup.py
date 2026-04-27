@@ -3,6 +3,8 @@ import json
 import re
 import shutil
 import subprocess
+import sys
+import time
 
 import cv2
 import numpy as np
@@ -16,11 +18,26 @@ ARMS_CONFIG = ROOT / "configs" / "arms.yaml"
 CAPTURED_IMAGES = ROOT / "outputs" / "captured_images"
 REFERENCE_IMAGES = ROOT / "outputs" / "camera_reference_images"
 CAMERA_PROFILE_SCRIPT = ROOT / "scripts" / "set_camera_profile.sh"
+ALIGN_TOPDOWN_SCRIPT = ROOT / "scripts" / "align_topdown_visual.py"
 CAMERA_MEMO_PATH = ROOT / ".camera-signatures.json"
 CAMERA_SIGNATURE_KEYS = ("ID_SERIAL_SHORT", "ID_SERIAL", "ID_PATH")
 WRIST_CAMERA_NAMES = ("right_wrist", "left_wrist")
 IMAGE_MATCH_MIN_SCORE = 0.72
 IMAGE_MATCH_MIN_MARGIN = 0.04
+
+
+class TopdownPoseDriftError(RuntimeError):
+    """Raised when the topdown RealSense is mounted at the wrong angle.
+
+    Distinct from generic RuntimeError so check_cameras can offer the
+    guided alignment tool instead of just aborting. Carries the Pose
+    object itself so the caller can classify severity and format a
+    per-axis breakdown without re-measuring.
+    """
+
+    def __init__(self, message: str, pose=None):
+        super().__init__(message)
+        self.pose = pose
 
 
 def load_config() -> dict:
@@ -460,11 +477,14 @@ def run_lerobot_find_cameras() -> None:
         )
 
 
-def prompt_yes_no(prompt: str) -> bool:
+def prompt_yes_no(prompt: str, default: bool = False) -> bool:
+    suffix = "[Y/n]" if default else "[y/N]"
     try:
-        answer = input(f"{prompt} [y/N] ").strip().lower()
+        answer = input(f"{prompt} {suffix} ").strip().lower()
     except EOFError:
-        return False
+        return default
+    if not answer:
+        return default
     return answer in ("y", "yes")
 
 
@@ -709,13 +729,21 @@ def save_reference_frames(frames_by_name: dict[str, np.ndarray]) -> None:
         cv2.imwrite(str(reference_image_for_camera(name)), frame)
 
 
-def check_realsense_camera(name: str, camera: dict) -> np.ndarray | None:
-    """Verify the RealSense is present and grab one color frame for the reference image.
+def check_realsense_camera(name: str, camera: dict) -> list[np.ndarray]:
+    """Verify the RealSense is present and grab a burst of color frames.
 
-    Returns the BGR color frame (uint8) on success, or None if the camera is fine
-    but we couldn't grab a frame quickly. Raises RuntimeError if the device is
-    missing — that is a hard setup failure.
+    Returns a list of 30 BGR frames captured AFTER the configured warmup
+    period. Raises RuntimeError if the device is missing or if streaming
+    doesn't come up. Used both for the wrist-style reference-image save
+    and, for the topdown, for the pose gate.
+
+    Always issues hardware_reset() before opening the pipeline. Without
+    this, a prior aborted lerobot-record leaves the device in a state
+    where pipeline.start() succeeds but frames never arrive (VIDIOC_S_FMT
+    EBUSY). The reset costs ~2s and makes cold-start deterministic.
     """
+    import time
+
     serial = str(camera["serial_number_or_name"])
     devices = list(rs.context().query_devices())
     serials = {device.get_info(rs.camera_info.serial_number) for device in devices}
@@ -731,40 +759,131 @@ def check_realsense_camera(name: str, camera: dict) -> np.ndarray | None:
             "and plugging it back in a few times randomly makes it enumerate.\n"
             f"lsusb output:\n{usb}"
         )
+    for device in devices:
+        if device.get_info(rs.camera_info.serial_number) == serial:
+            device.hardware_reset()
+            break
+    time.sleep(2)
 
-    # Grab one color frame so camera_drift analysis can include "current camera"
-    # as a reference point alongside training episodes.
     width = int(camera.get("width", 640))
     height = int(camera.get("height", 480))
     fps = int(camera.get("fps", 30))
+    warmup_s = float(camera.get("warmup_s", 3))
     pipeline = rs.pipeline()
     rs_config = rs.config()
     rs_config.enable_device(serial)
     rs_config.enable_stream(rs.stream.color, width, height, rs.format.bgr8, fps)
+    pipeline.start(rs_config)
     try:
-        pipeline.start(rs_config)
-        try:
-            # Drop a few frames so auto-exposure settles.
-            frames = None
-            for _ in range(10):
-                frames = pipeline.wait_for_frames(timeout_ms=2000)
-            color = frames.get_color_frame() if frames else None
-            if color is None:
-                return None
-            return np.asanyarray(color.get_data())
-        finally:
-            pipeline.stop()
-    except Exception as exc:
-        # Non-fatal: the device was verified present above. If the pipeline
-        # failed, just skip the reference-image save and carry on.
-        print(f"  (realsense reference-frame grab failed for {name}: {exc})")
-        return None
+        first_timeout_ms = max(8000, int(warmup_s * 1000) + 2000)
+        pipeline.wait_for_frames(timeout_ms=first_timeout_ms)
+        for _ in range(int(warmup_s * fps)):
+            pipeline.wait_for_frames(timeout_ms=2000)
+        burst: list[np.ndarray] = []
+        for _ in range(30):
+            frames = pipeline.wait_for_frames(timeout_ms=2000)
+            color = frames.get_color_frame()
+            burst.append(np.asanyarray(color.get_data()).copy())
+        return burst
+    finally:
+        pipeline.stop()
+
+
+def check_topdown_pose(frames: list[np.ndarray]) -> None:
+    """Average the topdown burst and compare pose vs the committed reference.
+
+    Three-tier verdict from evaluate_pose:
+      - OK: print success, continue.
+      - MARGINAL (drift within DRIFT_MULTIPLIER× tolerance): print warning
+        with the current offsets and continue — the setup is slightly off
+        but the training data tolerates it.
+      - DRIFT (beyond DRIFT_MULTIPLIER× tolerance): raise so the caller
+        can offer the alignment tool.
+    """
+    sys.path.insert(0, str(ROOT / "src"))
+    from utils.camera_pose import evaluate_pose, load_reference  # noqa: E402
+
+    avg = np.mean(np.stack(frames).astype(np.float32), axis=0).astype(np.uint8)
+    reference = load_reference()
+    pose, ok, msg = evaluate_pose(avg, reference)
+    if not ok:
+        raise TopdownPoseDriftError(msg, pose=pose)
+    if "MARGINAL" in msg:
+        print(f"Heads up, topdown {msg}")
+        print("  (slightly off, within acceptable wiggle — continuing)")
+        return
+    print(f"Okay, topdown {msg}")
+
+
+def present_topdown_drift(exc: TopdownPoseDriftError) -> bool:
+    """Print a formatted drift report and return whether the operator should
+    be urged to run the alignment tool. Returns True when the worst-axis
+    ratio meets or exceeds RECOMMEND_ALIGNMENT_MULTIPLIER.
+    """
+    from utils.camera_pose import (  # noqa: E402
+        RECOMMEND_ALIGNMENT_MULTIPLIER,
+        format_drift_breakdown,
+        worst_tolerance_ratio,
+    )
+
+    pose = exc.pose
+    print("")
+    print("Topdown camera pose is off from the committed reference:")
+    if pose is None:
+        # Obstruction / low-confidence path — no per-axis numbers available.
+        print(f"  {exc}")
+        print("")
+        return True
+
+    print(format_drift_breakdown(pose))
+    worst = worst_tolerance_ratio(pose)
+    print("")
+    print(
+        f"Worst-axis drift is {worst:.1f}× tolerance "
+        f"(recommend threshold is {RECOMMEND_ALIGNMENT_MULTIPLIER:g}×)."
+    )
+    recommend = worst >= RECOMMEND_ALIGNMENT_MULTIPLIER
+    if recommend:
+        print("Recommendation: RUN the alignment tool — the setup is visibly off.")
+    else:
+        print(
+            "Recommendation: alignment is OPTIONAL — the setup is workable, "
+            "you can skip and proceed."
+        )
+    return recommend
+
+
+def repair_topdown_pose_interactively() -> None:
+    """Launch the real-time alignment tool so the user can physically re-aim
+    the mount. Returns once the user exits the tool (Ctrl+C). The caller
+    is expected to re-capture a burst and re-evaluate pose afterward.
+    """
+    print("")
+    print("Opening the real-time visual alignment tool. It writes live")
+    print("overlays (blend, checkerboard, diff, side-by-side) to")
+    print("outputs/alignment_diff/ — open any of them in VS Code and its image")
+    print("preview will auto-reload as you re-aim the mount.")
+    print("")
+    print("Only the top band (mat + table background) is used for alignment.")
+    print("The gripper/scene region is masked out, so ignore differences there.")
+    print("Press Ctrl+C to exit the tool.")
+    print("")
+    subprocess.run(
+        ["uv", "run", "python", str(ALIGN_TOPDOWN_SCRIPT)],
+        cwd=ROOT,
+        check=False,
+    )
+    # Give the RealSense a moment to fully release before we re-open it.
+    time.sleep(1.5)
+    print("")
+    print("Re-checking topdown pose...")
 
 
 def check_cameras(config: dict) -> None:
     apply_memoized_camera_paths(config)
 
     repaired = False
+    topdown_pose_repaired = False
     reference_frames: dict[str, np.ndarray] = {}
     while True:
         restart_checks = False
@@ -787,9 +906,54 @@ def check_cameras(config: dict) -> None:
                     restart_checks = True
                     break
             elif camera_type == "intelrealsense-cached":
-                frame = check_realsense_camera(name, camera)
-                if frame is not None:
-                    reference_frames[name] = frame
+                frames = check_realsense_camera(name, camera)
+                if name == "topdown":
+                    try:
+                        check_topdown_pose(frames)
+                    except TopdownPoseDriftError as exc:
+                        if topdown_pose_repaired:
+                            # Alignment was already attempted this session
+                            # and pose is still off — alert loudly but do NOT
+                            # fail: pose drift never blocks the record script.
+                            print("")
+                            print(
+                                f"WARNING: topdown camera pose still off "
+                                f"after alignment: {exc}"
+                            )
+                            print(
+                                "Proceeding anyway — pose drift is alert-only. "
+                                "Fix the mount later with "
+                                "`uv run python scripts/align_topdown_visual.py` "
+                                "if the numbers matter for this session."
+                            )
+                        else:
+                            recommend = present_topdown_drift(exc)
+                            print("")
+                            if prompt_yes_no(
+                                "Launch the real-time alignment tool now?",
+                                default=recommend,
+                            ):
+                                repair_topdown_pose_interactively()
+                                topdown_pose_repaired = True
+                                restart_checks = True
+                                break
+                            # Declined → warn and proceed. Pose drift never
+                            # aborts recording, regardless of severity.
+                            if recommend:
+                                print(
+                                    f"WARNING: topdown camera is significantly "
+                                    f"off (alignment recommended, declined): {exc}"
+                                )
+                                print(
+                                    "Run `uv run python scripts/align_topdown_visual.py` "
+                                    "later to fix it. Proceeding with recording now."
+                                )
+                            else:
+                                print(
+                                    "Proceeding without alignment. The setup "
+                                    "is off but within the acceptable range "
+                                    "for this session."
+                                )
             else:
                 raise RuntimeError(f"{name} has unsupported camera type: {camera_type}")
 

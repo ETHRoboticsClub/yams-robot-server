@@ -1,3 +1,58 @@
+# Copy & Paste Commands
+
+Commonly-used commands for this project. Copy, paste, tweak as needed.
+Setup troubleshooting lives at the bottom.
+
+---
+
+## Inference
+
+To switch which policy runs, edit `scripts/inference.sh` and comment /
+uncomment a `POLICY_PATH=...` line before running any of the below.
+
+**One-off test — fresh eval repo, no HF push (safest default):**
+
+```bash
+NEW_REPO=true \
+REPO=ETHRC/eval_box_test \
+NUM_EPISODES=1 \
+EPISODE_TIME_S=100 \
+RESET_TIME_S=10 \
+PUSH_TO_HUB=false \
+./scripts/inference.sh --log
+```
+
+**Quick single-episode run — reuses existing eval repo:**
+
+```bash
+REPO=ETHRC/eval_box_test NUM_EPISODES=1 EPISODE_TIME_S=50 PUSH_TO_HUB=false ./scripts/inference.sh --log
+```
+
+---
+
+## Recording
+
+```bash
+sudo -i
+cd /home/ethrc/Desktop/yams-robot-server
+hf auth whoami
+NUM_EPISODES=20 EPISODE_TIME_S=10 RESET_TIME_S=0 PUSH_TO_HUB=true ./scripts/record.sh
+hf datasets info ETHRC/yams-carton-box-closing
+```
+
+---
+
+## Grant `tommaso` SSH access (run as `ethrc`)
+
+```bash
+sudo install -d -o tommaso -g tommaso -m 700 /home/tommaso/.ssh
+echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINzss9V+etthB7s6Um1kXzkE99lhPHEdHv52cwt5L4eI tom.gazzini@gmail.com' | sudo tee /home/tommaso/.ssh/authorized_keys > /dev/null
+sudo chown tommaso:tommaso /home/tommaso/.ssh/authorized_keys
+sudo chmod 600 /home/tommaso/.ssh/authorized_keys
+```
+
+---
+
 # Setup Problems
 
 ## Leader port exists, but some Dynamixel motors are missing
@@ -56,7 +111,6 @@ Full found motor list (id: model_number):
 {1: 1020, 2: 1020, 3: 1020}
 ```
 
-
 ## Innomaker wrist camera resets mid-inference (second run onwards)
 
 **Symptom:** `OpenCVCameraCached(/dev/videoN) exceeded maximum consecutive read failures` during inference, always on the second run. First run is fine.
@@ -70,29 +124,3 @@ Before calling `set_camera_profile.sh`, check if `auto_exposure` is already `1` 
 
 **Remaining fix (Option B) — reconnect recovery in `OpenCVCameraCached`:**
 If the reset fires anyway (e.g. on the very first run, or if `check_setup` wasn't run), the read thread hits 10+ consecutive failures and crashes, killing inference. The fix is to catch this in `_read_loop` or `connect()`: on consecutive failures, call `disconnect()` then `connect()` (with retries) instead of raising. The camera comes back on the same stable symlink path within ~2 seconds. This mirrors what `RealSenseCameraCached` already does via `_reset_busy_device()` + `hardware_reset()`. Without this, Option A is a best-effort guard but not a hard guarantee.
-
----
-
-REPO=ETHRC/eval_box_test NUM_EPISODES=1 EPISODE_TIME_S=50 PUSH_TO_HUB=false ./scripts/inference.sh --log
-
- NEW_REPO=true \
-REPO=ETHRC/eval_box_test \
-NUM_EPISODES=1 \
-EPISODE_TIME_S=20 \
-RESET_TIME_S=10 \
-PUSH_TO_HUB=false \
-./scripts/inference.sh --log
-
-
-# RECORD
-sudo -i
-cd /home/ethrc/Desktop/yams-robot-server
-hf auth whoami
-NUM_EPISODES=20 EPISODE_TIME_S=10 RESET_TIME_S=0 PUSH_TO_HUB=true ./scripts/record.sh
-hf datasets info ETHRC/yams-carton-box-closing
-
-  sudo install -d -o tommaso -g tommaso -m 700 /home/tommaso/.ssh
-  echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINzss9V+etthB7s6Um1kXzkE99lhPHEdHv52cwt5L4eI tom.gazzini@gmail.com' | sudo tee
-  /home/tommaso/.ssh/authorized_keys > /dev/null
-  sudo chown tommaso:tommaso /home/tommaso/.ssh/authorized_keys
-  sudo chmod 600 /home/tommaso/.ssh/authorized_keys

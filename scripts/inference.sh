@@ -81,7 +81,79 @@ RESET_TIME_S=${RESET_TIME_S:-10}
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_dark_shadow_20260423_014430_153499/checkpoints/last}  # 
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_heavy_aug_20260423_014430_153499/checkpoints/last}    # 25k training steps heavy augm
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_kitchen_sink_20260423_014430_153499/checkpoints/last} #
-POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_max_aug_20260423_014430_153499/checkpoints/last}    # 
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw120_max_aug_20260423_014430_153499/checkpoints/last}    #
+#
+# -- April 24 mtw95 S3 sweep (RUN_ID 20260424_085516_305845, slow/video path) --
+# Dataset: ETHRC/yams-carton-box-closing-mon-tue-wed, 95 eps (122 minus 27 outliers @ S3 threshold suspicion>6.5), 15K steps
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw95_s3_no_aug_20260424_085516_305845/checkpoints/last}        # no_aug — DONE (15000 steps, finished ~09:58)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw95_s3_kitchen_sink_20260424_085516_305845/checkpoints/last}   # kitchen_sink — PARTIAL (10800/15000 = 72%, interrupted ~11:10) — active test target
+#
+# -- April 24 fast-path sweep (predecoded JPG cache, RUN_ID 20260424_111724_350350) --
+# Dataset: ETHRC/yams-carton-box-closing-mon-tue-wed, 95 eps (S3 cut), dark_noise aug, 15K steps
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw95_s3_dark_noise_fast_20260424_111724_350350/checkpoints/last}  # dark_noise — PARTIAL (14400/15000 steps, stopped ~12:09 before final checkpoint)
+#
+# -- April 24 fast-path continuation (RUN_ID 20260424_fast_continuation, watchdog-launched after above) --
+# All use dark_noise aug, 15K steps, predecoded path
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/wed50_dark_noise_fast_20260424_fast_continuation/checkpoints/last}      # 50 eps (wed-tom-elias only, camera not shifted) — DONE (15000 steps, finished 13:06)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/tw69_dark_noise_fast_20260424_fast_continuation/checkpoints/last}       # 69 eps (tue+wed, no aborts) — DONE (15000 steps, finished 14:03)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/m40tw81_dark_noise_fast_20260424_fast_continuation/checkpoints/last}    # 81 eps (mon[40:]+tue+wed) — DONE (15000 steps, finished 15:00)
+#
+# -- April 24 sebastian_aug (RUN_ID 20260424_163346_sebastian_aug, fast path) --
+# Dataset: ETHRC/yams-carton-box-closing-mon-tue-wed, 50 eps (wed-only, eps 72–121), 15K steps.
+# NEW AUG "sebastian_aug": 3-transform random-order mix of RandomAffine (±3°, 10% translate)
+# + ColorJitter (brightness/contrast/hue/saturation, no sharpness). First run that adds a
+# GEOMETRIC transform (affine) on top of the color-jitter profiles used in dark_noise.
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/wed50_sebastian_aug_20260424_163346_sebastian_aug/checkpoints/last}    # wed50 + sebastian_aug (affine+color) — DONE (15000 steps, finished 17:38)
+#
+# -- April 24 translation_sweep (follow-up to wed50_sebastian_aug, NOT YET TRAINED as of this edit) --
+# 3-run sweep varying one axis against wed50_sebastian_aug. Paths will exist once the sweep runs.
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mw_sebastian_aug_<RUN_ID>/checkpoints/last}        # mon+wed, 10% translate — does adding mon help?
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/mtw_sebastian_aug_<RUN_ID>/checkpoints/last}       # all 3 days, 10% translate — can aug bridge tue outlier?
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/wed50_sebastian_aug_t05_<RUN_ID>/checkpoints/last} # wed only, 5% translate — is 10% overkill?
+
+# -- April 25-26 30-run sweep, Phase 1 (RUN_ID 20260425_194751_231046, fast/predecoded path) --
+# Dataset: ETHRC/yams-carton-box-closing-sat-michael-mat-varing-fan-position-25-04-2025
+# Saturday-only suspicion-tier ablation. 5 tiers (T1=strictest, T5=lenient) × {no_aug, kitchen_sink}.
+# 15K steps each. Cell 10 (T5+kitchen_sink) skipped — covered by sat_michael_mat_fan_v1_fast below.
+# Plan: ~/.gstack/projects/Desktop/tommaso-no-branch-eng-review-plan-20260425-184351.md
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T1_strictest_no_aug_20260425_194751_231046/checkpoints/last}         # not working # cell 1: T1=130 eps (drops top-6 suspicion: 12,2,17,5,76,3), no_aug — strictest filter, no regularization
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T1_strictest_kitchen_sink_20260425_194751_231046/checkpoints/last}  # cell 2: T1=130 eps, kitchen_sink (4/9) — aug-on-clean delta
+#POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T2_strict_no_aug_20260425_194751_231046/checkpoints/last}            # cell 3: T2=131 eps (drops top-5: 12,2,17,5,76), no_aug — direct comparator to p2_11
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T2_strict_kitchen_sink_20260425_194751_231046/checkpoints/last}     # cell 4: T2=131 eps, kitchen_sink
+#POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T3_balanced_kitchen_sink_20260425_194751_231046/checkpoints/last}   # BEST SO FAR # cell 6: T3=132 eps, kitchen_sink — likely best Phase-1 candidate # BEST SO FAR
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T4_lenient_no_aug_20260425_194751_231046/checkpoints/last}          # BEST SO FAR # cell 7: T4=133 eps (drops top-3: 12,2,17), no_aug
+#POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T4_lenient_kitchen_sink_20260425_194751_231046/checkpoints/last}    # cell 8: T4=133 eps, kitchen_sink — does aug compensate for noisier data?
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_T5_only_abort_no_aug_20260425_194751_231046/checkpoints/last}       # cell 9: T5=135 eps (drops only manual-abort ep 12), no_aug — max-data Saturday baseline
+
+# -- April 26 30-run sweep, Phase 2 (RUN_ID 20260425_195046_232159, fast/predecoded path) --
+# Dataset: ETHRC/yams-carton-box-closing-mtw-sat (258 eps merged: Sat 0-135, Mon 136-187, Tue 188-207, Wed 208-257)
+# Orthogonal layout — size arm (cells 11-15, no_aug) and aug arm (cells 16-20, full ~251-ep set).
+# Cells 14 + 16 share data (full no_aug vs full kitchen_sink) and form the no-aug-vs-aug delta.
+# Cell 20 (max_aug, 35K steps) STILL TRAINING as of 2026-04-26 18:00 — path will exist when finished.
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_11_sat_only_no_aug_20260425_195046_232159/checkpoints/last}        # cell 11: sat T2 only (131 eps), no_aug — size-arm baseline; same data as Phase-1 cell 3
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_12_sat_mon_no_aug_20260425_195046_232159/checkpoints/last}         # cell 12: sat T2 + mon (182 eps), no_aug — Sat→Sat+Mon size benefit
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_13_sat_mon_tue_no_aug_20260425_195046_232159/checkpoints/last}    # cell 13: sat T2 + mon + tue (201 eps), no_aug — adds 19 Tue eps
+#POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_14_full_no_aug_20260425_195046_232159/checkpoints/last}            # cell 14: full mtw-sat (251 eps), no_aug — multi-day no-aug baseline; PAIRS with cell 16
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_15_susp_filtered_no_aug_20260425_195046_232159/checkpoints/last}   # cell 15: full minus suspicion top-quartile (~190 eps), no_aug — multi-day filter generalization
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_16_full_kitchen_sink_20260425_195046_232159/checkpoints/last}      # cell 16: full mtw-sat (251 eps), kitchen_sink (4/9) — aug-arm baseline; PAIRS with cell 14
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_17_full_dark_noise_20260425_195046_232159/checkpoints/last}        # cell 17: full mtw-sat (251 eps), dark_noise — lighting-focused
+#POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_18_full_dark_shadow_20260425_195046_232159/checkpoints/last}       # cell 18: full mtw-sat (251 eps), dark_shadow — occlusion-focused
+#POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_19_full_heavy_aug_20260425_195046_232159/checkpoints/last}         # cell 19: full mtw-sat (251 eps), heavy_aug (6/9), 25K steps — heavier regularization
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p2_20_full_max_aug_20260425_195046_232159/checkpoints/last}            # cell 20: full mtw-sat (251 eps), max_aug (8/9), 35K steps — TRAINING IN PROGRESS
+
+# -- April 27 30-run sweep, Phase 3 (RUN_ID 20260425_195053_232215, fast/predecoded, NOT YET TRAINED) --
+# Dataset: ETHRC/yams-carton-box-closing-mtw-sat with explicit train/val episode-list splits.
+# Day-combination ablation. Each cell trains on a _train list; matching _val list is on disk at
+# analytics/output/sweep_lists/p3_*.val.episodes.txt — reserved for real-robot rollout eval (TODO 3).
+# All cells use kitchen_sink aug, 15K steps. Will exist after Phase 2 finishes (~05:00 2026-04-27).
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_21_sat_train_mon_val_20260425_195053_232215/checkpoints/last}              # cell 21: train sat T2 (131), val mon (51) — Sat→Mon transfer
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_22_mon_train_sat_val_20260425_195053_232215/checkpoints/last}              # cell 22: train mon (51), val sat T2 (131) — Mon→Sat transfer (smallest train; watch issue #2853)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_23_sat_mon_train_tue_val_20260425_195053_232215/checkpoints/last}          # cell 23: train sat+mon (182), val tue (19) — combined vs Tue holdout
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_24_sat_mon_tue_train_wed_val_20260425_195053_232215/checkpoints/last}      # cell 24: train sat+mon+tue (201), val wed (50) — operator generalization to Wed
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_25_random80_seed42_20260425_195053_232215/checkpoints/last}                # cell 25: random 80% (204), val 20% (51) — within-distribution generalization
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_26_sat_train_rest_val_20260425_195053_232215/checkpoints/last}             # cell 26: train sat T2 (131), val mon+tue+wed (120) — Sat alone vs other days
+
+POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_michael_mat_fan_v1_fast_20260425_155404_183070/checkpoints/last}   # carton box saturday — Phase-1 cell-10 stand-in (T5 + kitchen_sink-style aug) FIRST NEARLY WORKING VERSION!!!!!!!!!!
 
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")

@@ -22,7 +22,11 @@
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('episodes:', d.get\\('total_episodes'\\)\\); print\\('frames:', d.get\\('total_frames'\\)\\); print\\('fps:', d.get\\('fps'\\)\\); print\\('features:', list\\(d.get\\('features',{}\\).keys\\(\\)\\)\\)\")",
       "Bash(tmux capture-pane *)",
       "Bash(aws ec2 *)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('episodes:', d.get\\('total_episodes'\\)\\); print\\('frames:', d.get\\('total_frames'\\)\\); print\\('fps:', d.get\\('fps'\\)\\)\")"
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('episodes:', d.get\\('total_episodes'\\)\\); print\\('frames:', d.get\\('total_frames'\\)\\); print\\('fps:', d.get\\('fps'\\)\\)\")",
+      "Bash(/home/ethrc/Desktop/yams-robot-server/.venv/bin/lerobot-dataset-viz --help)",
+      "Bash(python3 -c \"import json; info=json.load\\(open\\('/home/ethrc/.cache/huggingface/lerobot/ETHRC/yams-carton-box-closing-fri-tom-mat-varing-fan-position/meta/info.json'\\)\\); print\\('\\\\n'.join\\(sorted\\(info['features'].keys\\(\\)\\)\\)\\)\")",
+      "Bash(lsusb -t)",
+      "Bash(lsof /dev/video*)"
     ]
   }
 }
