@@ -14,6 +14,84 @@ import yaml
 
 from lerobot_teleoperator_gello.leader import YamsLeader, YamsLeaderConfig
 
+
+class UI:
+    """Tiny ANSI helper. No deps, falls back to plain text on non-TTYs."""
+
+    _tty = sys.stdout.isatty()
+    if _tty:
+        G, Y, R, C, BOLD, DIM, END = (
+            "\033[32m", "\033[33m", "\033[31m", "\033[36m",
+            "\033[1m", "\033[2m", "\033[0m",
+        )
+    else:
+        G = Y = R = C = BOLD = DIM = END = ""
+
+    _status_active = False
+
+    @classmethod
+    def header(cls, title: str) -> None:
+        bar = "━" * 48
+        print()
+        print(f"{cls.BOLD}{bar}{cls.END}")
+        print(f"{cls.BOLD}  {title}{cls.END}")
+        print(f"{cls.BOLD}{bar}{cls.END}")
+
+    @classmethod
+    def section(cls, title: str) -> None:
+        cls._clear_status()
+        print()
+        print(f"{cls.BOLD}{title}{cls.END}")
+
+    @classmethod
+    def ok(cls, msg: str) -> None:
+        cls._clear_status()
+        print(f"  {cls.G}✓{cls.END}  {msg}")
+
+    @classmethod
+    def warn(cls, msg: str) -> None:
+        cls._clear_status()
+        print(f"  {cls.Y}⚠{cls.END}  {msg}")
+
+    @classmethod
+    def fail(cls, msg: str) -> None:
+        cls._clear_status()
+        print(f"  {cls.R}✗{cls.END}  {msg}")
+
+    @classmethod
+    def info(cls, msg: str) -> None:
+        cls._clear_status()
+        print(f"  {cls.DIM}·{cls.END}  {msg}")
+
+    @classmethod
+    def detail(cls, msg: str) -> None:
+        cls._clear_status()
+        for line in str(msg).splitlines():
+            print(f"      {cls.DIM}{line}{cls.END}")
+
+    @classmethod
+    def status(cls, msg: str) -> None:
+        if cls._tty:
+            sys.stdout.write(f"\r\033[K  {cls.DIM}…{cls.END}  {msg}")
+            sys.stdout.flush()
+            cls._status_active = True
+        else:
+            print(f"  ·  {msg}", flush=True)
+
+    @classmethod
+    def _clear_status(cls) -> None:
+        if cls._tty and cls._status_active:
+            sys.stdout.write("\r\033[K")
+            sys.stdout.flush()
+            cls._status_active = False
+
+    @classmethod
+    def done(cls) -> None:
+        cls._clear_status()
+        print()
+        print(f"  {cls.BOLD}{cls.G}✓ ready{cls.END}")
+        print()
+
 ROOT = Path(__file__).resolve().parents[1]
 ARMS_CONFIG = ROOT / "configs" / "arms.yaml"
 CAPTURED_IMAGES = ROOT / "outputs" / "captured_images"
@@ -167,9 +245,9 @@ def apply_memoized_can_ports(config: dict) -> None:
 
     if changes:
         replace_can_ports_in_yaml(changes)
-        print(
-            "Auto-corrected CAN port mapping from saved adapter signatures: "
-            + ", ".join(f"{side}_arm={iface}" for side, iface in sorted(changes.items()))
+        UI.ok("auto-mapped CAN ports from saved adapter signatures")
+        UI.detail(
+            ", ".join(f"{side}_arm={iface}" for side, iface in sorted(changes.items()))
         )
 
 
@@ -194,14 +272,29 @@ def find_failing_cans(config: dict) -> list[tuple[str, str, str]]:
     return failures
 
 
-def print_can_link_states(cans: list[str]) -> None:
+def can_link_state_summary(cans: list[str]) -> str:
+    """Compact one-line-per-iface state summary for UI.detail."""
+    rows = []
     for can in cans:
         _, output = run_command_text(["ip", "link", "show", can])
-        print(output or f"(no output for {can})")
+        if not output:
+            rows.append(f"{can}  (no output)")
+            continue
+        # First line of `ip link show` looks like:
+        #   "7: can0: <NOARP,UP,LOWER_UP,ECHO> mtu 16 qdisc pfifo_fast state UP ..."
+        head = output.splitlines()[0]
+        m = re.search(r"state (\S+)", head)
+        state = m.group(1) if m else "?"
+        rows.append(f"{can}  {state}")
+    return "\n".join(rows)
+
+
+def print_can_link_states(cans: list[str]) -> None:
+    UI.detail(can_link_state_summary(cans))
 
 
 def reset_can_buses() -> int:
-    print(f"Running: sudo bash {RESET_CAN_SCRIPT.relative_to(ROOT)}")
+    UI.info(f"running: sudo bash {RESET_CAN_SCRIPT.relative_to(ROOT)}")
     # Don't capture output — sudo's password prompt and the script's progress
     # both need to reach the terminal directly.
     result = subprocess.run(["bash", str(RESET_CAN_SCRIPT)], cwd=ROOT, check=False)
@@ -209,6 +302,7 @@ def reset_can_buses() -> int:
 
 
 def check_cans(config: dict) -> None:
+    UI.section("CAN buses")
     apply_memoized_can_ports(config)
 
     cans = sorted({
@@ -219,17 +313,15 @@ def check_cans(config: dict) -> None:
     while True:
         failures = find_failing_cans(config)
         if not failures:
-            print("Okay, cans connected")
-            print("CAN interface mapping:")
-            print_can_link_states(cans)
+            UI.ok("cans connected")
+            UI.detail(can_link_state_summary(cans))
             save_can_memo(config)
             return
 
         for side, can, reason in failures:
             label = "not found" if reason == "missing" else "is down"
-            print(f"{side} follower CAN interface {label}: {can}")
-        print("Current CAN state:")
-        print_can_link_states(cans)
+            UI.fail(f"{side} follower CAN interface {label}: {can}")
+        UI.detail(can_link_state_summary(cans))
 
         if repaired:
             still_failing = ", ".join(can for _, can, _ in failures)
@@ -281,25 +373,27 @@ def _safe_disconnect(leader) -> None:
 
 
 def _check_leader_side(side: str, port: str, config: dict, free_port_fn) -> None:
-    print(f"Checking {side} leader at {port}...", flush=True)
+    UI.status(f"{side} leader  connecting...")
     # Kill any process still holding the FTDI port — a prior aborted
     # lerobot-record can leave the port open, which makes bus.connect()
     # hang forever waiting on the OS to grant access.
     free_port_fn(port)
     leader = YamsLeader(YamsLeaderConfig(port=port, side=side))
+    connect_n = 0
+    sync_n = 0
     try:
         # Retry handshake — bus is flaky from a cut cable into a wrist
         # motor, so a single attempt drops ~30-80% of the time.
         last_error: Exception | None = None
         for attempt in range(1, 11):
-            print(f"  {side} leader bus.connect attempt {attempt}/10...", flush=True)
+            connect_n = attempt
+            UI.status(f"{side} leader  connecting (attempt {attempt}/10)...")
             try:
                 leader.bus.connect()
-                print(f"  {side} leader bus.connect attempt {attempt}/10 OK", flush=True)
                 break
             except Exception as e:
                 last_error = e
-                print(f"  {side} leader bus.connect attempt {attempt}/10 FAILED: {e}", flush=True)
+                UI.detail(f"connect {attempt}/10 failed: {e}")
                 if LEADER_POWER_OFF_MARKER in str(e):
                     # Power off — the next 9 retries cannot help, only the
                     # operator can. Bubble up so check_leaders can prompt.
@@ -313,16 +407,16 @@ def _check_leader_side(side: str, port: str, config: dict, free_port_fn) -> None
         positions = None
         last_error = None
         for attempt in range(1, 11):
-            print(f"  {side} leader sync_read attempt {attempt}/10...", flush=True)
+            sync_n = attempt
+            UI.status(f"{side} leader  reading positions (attempt {attempt}/10)...")
             try:
                 positions = leader.bus.sync_read(
                     normalize=False, data_name="Present_Position"
                 )
-                print(f"  {side} leader sync_read attempt {attempt}/10 OK", flush=True)
                 break
             except Exception as e:
                 last_error = e
-                print(f"  {side} leader sync_read attempt {attempt}/10 FAILED: {e}", flush=True)
+                UI.detail(f"sync_read {attempt}/10 failed: {e}")
                 time.sleep(0.2)
         else:
             raise last_error if last_error else RuntimeError(
@@ -340,8 +434,11 @@ def _check_leader_side(side: str, port: str, config: dict, free_port_fn) -> None
     if not calibration.exists():
         raise RuntimeError(f"{side} leader calibration offsets not found: {calibration}")
 
+    UI.ok(f"{side} leader  connect ({connect_n}) · sync_read ({sync_n})")
+
 
 def check_leaders(config: dict) -> None:
+    UI.section("Leader arms")
     sys.path.insert(0, str(ROOT / "src"))
     from utils.connection import _free_port  # noqa: E402
 
@@ -366,13 +463,11 @@ def check_leaders(config: dict) -> None:
                         f"the cable into the leader, and the fuse."
                     ) from exc
                 power_prompted = True
-                print("")
-                print(
-                    f"  {side} leader port is open, but 0 motors responded "
-                    f"(expected 7).\n"
-                    f"  This is the classic 'forgot the leader power strip' signature.\n"
-                    f"  The FTDI dongle is USB-bus-powered so it works fine even "
-                    f"when the motors are dead."
+                UI.warn(f"{side} leader: port open but 0 motors responded (expected 7)")
+                UI.detail(
+                    "classic 'forgot the leader power strip' signature.\n"
+                    "the FTDI dongle is USB-bus-powered so it works fine "
+                    "even when the motors are dead."
                 )
                 if not prompt_yes_no(
                     "Did you turn on electricty you dumb ass?",
@@ -382,9 +477,8 @@ def check_leaders(config: dict) -> None:
                         f"{side} leader has no motor responses and the "
                         f"power strip wasn't turned on. Flip it and rerun."
                     ) from exc
-                print("Well, good job, now let's continue.")
+                UI.info("good — continuing")
                 # Retry this side from scratch (fresh YamsLeader instance).
-    print("Okay, leader USBs receiving offsets")
 
 
 def opencv_device_path(index_or_path) -> Path:
@@ -519,9 +613,9 @@ def apply_memoized_camera_paths(config: dict) -> bool:
 
     if changed_paths:
         replace_camera_paths_in_yaml(changed_paths)
-        print(
-            "Updated camera paths from saved hardware signatures: "
-            + ", ".join(f"{name}={path}" for name, path in sorted(changed_paths.items()))
+        UI.ok("auto-mapped cameras from saved USB signatures")
+        UI.detail(
+            ", ".join(f"{name}={path}" for name, path in sorted(changed_paths.items()))
         )
     return bool(found)
 
@@ -767,7 +861,7 @@ def remove_old_opencv_captures() -> None:
 
 
 def run_lerobot_find_cameras() -> None:
-    print("Running: uv run lerobot-find-cameras")
+    UI.info("running: uv run lerobot-find-cameras")
     remove_old_opencv_captures()
     result = subprocess.run(["uv", "run", "lerobot-find-cameras"], cwd=ROOT, check=False)
     if result.returncode != 0:
@@ -817,8 +911,8 @@ def apply_selected_camera_mapping(selected: dict[str, str]) -> dict:
     replace_camera_paths_in_yaml(selected)
     config = load_config()
     save_camera_memo(config)
-    print(
-        "Updated camera config: "
+    UI.detail(
+        "updated camera config: "
         + ", ".join(f"{name}={path}" for name, path in selected.items())
     )
 
@@ -840,28 +934,28 @@ def repair_camera_mapping_interactively(config: dict) -> dict:
         )
 
     selected, match_message = best_image_mapping(candidates)
-    print(match_message)
     if selected:
-        print(
-            "Image match accepted: "
-            + ", ".join(f"{name}={path}" for name, path in selected.items())
+        UI.ok("auto-mapped cameras via frame recognition")
+        UI.detail(
+            ", ".join(f"{name}={path}" for name, path in selected.items())
         )
         return apply_selected_camera_mapping(selected)
 
-    print("")
-    print("Captured images are here:")
-    print(f"  {CAPTURED_IMAGES}")
-    print("Reference images are here:")
-    print(f"  {REFERENCE_IMAGES}")
-    print("")
-    print("Wrist-like camera candidates:")
+    UI.warn("frame-recognition match was inconclusive — falling back to manual")
+    UI.detail(match_message)
+    UI.detail(
+        f"captured images: {CAPTURED_IMAGES}\n"
+        f"reference images: {REFERENCE_IMAGES}"
+    )
+    UI.detail("wrist-like camera candidates:")
     for candidate in candidates:
         image = captured_image_for_device(candidate)
         image_status = str(image) if image.exists() else "no captured image found"
-        print(f"  {candidate.name.removeprefix('video')}: {candidate} -> {image_status}")
-    print("")
-    print("Open the fresh captured images and compare them to the reference images.")
-    print("Then enter the device number for each wrist camera, for example 0 or 8.")
+        UI.detail(f"  {candidate.name.removeprefix('video')}: {candidate} -> {image_status}")
+    UI.detail(
+        "open the fresh captured images and compare them to the reference images.\n"
+        "then enter the device number for each wrist camera, for example 0 or 8."
+    )
 
     selected: dict[str, str] = {}
     used: set[Path] = set()
@@ -976,7 +1070,7 @@ def apply_camera_profile(name: str, path: Path) -> None:
             f"{detail}\n"
             f"{camera_fix_instructions(name, path, path)}"
         )
-    print(f"Okay, applied camera profile to {name}: {path}")
+    UI.ok(f"{name}  {path}  profile applied")
 
 
 def check_opencv_camera(name: str, camera: dict) -> np.ndarray:
@@ -1057,7 +1151,7 @@ def check_realsense_camera(name: str, camera: dict) -> list[np.ndarray]:
             break
         except Exception as e:
             last_error = e
-            print(f"RealSense query_devices attempt {attempt}/5 failed: {e}")
+            UI.detail(f"RealSense query_devices attempt {attempt}/5 failed: {e}")
             time.sleep(1.0)
     else:
         raise RuntimeError(
@@ -1127,10 +1221,15 @@ def check_topdown_pose(frames: list[np.ndarray]) -> None:
     if not ok:
         raise TopdownPoseDriftError(msg, pose=pose)
     if "MARGINAL" in msg:
-        print(f"Heads up, topdown {msg}")
-        print("  (slightly off, within acceptable wiggle — continuing)")
+        # split at first colon so the headline stays compact and the per-axis
+        # numbers go into the dim sub-line
+        headline, _, rest = msg.partition(":")
+        UI.warn(f"topdown {headline.strip()}")
+        if rest.strip():
+            UI.detail(rest.strip())
+        UI.detail("slightly off, within acceptable wiggle — continuing")
         return
-    print(f"Okay, topdown {msg}")
+    UI.ok(f"topdown {msg}")
 
 
 def present_topdown_drift(exc: TopdownPoseDriftError) -> bool:
@@ -1145,28 +1244,25 @@ def present_topdown_drift(exc: TopdownPoseDriftError) -> bool:
     )
 
     pose = exc.pose
-    print("")
-    print("Topdown camera pose is off from the committed reference:")
+    UI.fail("topdown camera pose is off from the committed reference")
     if pose is None:
         # Obstruction / low-confidence path — no per-axis numbers available.
-        print(f"  {exc}")
-        print("")
+        UI.detail(str(exc))
         return True
 
-    print(format_drift_breakdown(pose))
+    UI.detail(format_drift_breakdown(pose))
     worst = worst_tolerance_ratio(pose)
-    print("")
-    print(
-        f"Worst-axis drift is {worst:.1f}× tolerance "
-        f"(recommend threshold is {RECOMMEND_ALIGNMENT_MULTIPLIER:g}×)."
+    UI.detail(
+        f"worst-axis drift is {worst:.1f}× tolerance "
+        f"(recommend threshold is {RECOMMEND_ALIGNMENT_MULTIPLIER:g}×)"
     )
     recommend = worst >= RECOMMEND_ALIGNMENT_MULTIPLIER
     if recommend:
-        print("Recommendation: RUN the alignment tool — the setup is visibly off.")
+        UI.detail("recommendation: RUN the alignment tool — the setup is visibly off")
     else:
-        print(
-            "Recommendation: alignment is OPTIONAL — the setup is workable, "
-            "you can skip and proceed."
+        UI.detail(
+            "recommendation: alignment is OPTIONAL — the setup is workable, "
+            "you can skip and proceed"
         )
     return recommend
 
@@ -1176,16 +1272,15 @@ def repair_topdown_pose_interactively() -> None:
     the mount. Returns once the user exits the tool (Ctrl+C). The caller
     is expected to re-capture a burst and re-evaluate pose afterward.
     """
-    print("")
-    print("Opening the real-time visual alignment tool. It writes live")
-    print("overlays (blend, checkerboard, diff, side-by-side) to")
-    print("outputs/alignment_diff/ — open any of them in VS Code and its image")
-    print("preview will auto-reload as you re-aim the mount.")
-    print("")
-    print("Only the top band (mat + table background) is used for alignment.")
-    print("The gripper/scene region is masked out, so ignore differences there.")
-    print("Press Ctrl+C to exit the tool.")
-    print("")
+    UI.info("opening the real-time visual alignment tool")
+    UI.detail(
+        "writes live overlays (blend, checkerboard, diff, side-by-side) to\n"
+        "outputs/alignment_diff/ — open any of them in VS Code and its image\n"
+        "preview will auto-reload as you re-aim the mount.\n"
+        "only the top band (mat + table background) is used for alignment.\n"
+        "the gripper/scene region is masked out, so ignore differences there.\n"
+        "press Ctrl+C to exit the tool."
+    )
     subprocess.run(
         ["uv", "run", "python", str(ALIGN_TOPDOWN_SCRIPT)],
         cwd=ROOT,
@@ -1193,11 +1288,11 @@ def repair_topdown_pose_interactively() -> None:
     )
     # Give the RealSense a moment to fully release before we re-open it.
     time.sleep(1.5)
-    print("")
-    print("Re-checking topdown pose...")
+    UI.info("re-checking topdown pose...")
 
 
 def check_cameras(config: dict) -> None:
+    UI.section("Cameras")
     apply_memoized_camera_paths(config)
 
     repaired = False
@@ -1214,7 +1309,7 @@ def check_cameras(config: dict) -> None:
                     if name in WRIST_CAMERA_NAMES:
                         reference_frames[name] = frame
                 except RuntimeError as exc:
-                    print(exc)
+                    UI.fail(str(exc))
                     if repaired or name not in WRIST_CAMERA_NAMES:
                         raise
                     if not prompt_yes_no("Camera check failed. Run guided camera remapping now?"):
@@ -1231,7 +1326,7 @@ def check_cameras(config: dict) -> None:
                         # mount alignment this session. Useful when the
                         # committed reference image doesn't match the current
                         # scene yet (e.g. fresh setup, swapped mat).
-                        print("Skipping topdown pose check (SKIP_TOPDOWN_POSE set)")
+                        UI.info("skipping topdown pose check (SKIP_TOPDOWN_POSE set)")
                         continue
                     try:
                         check_topdown_pose(frames)
@@ -1240,20 +1335,15 @@ def check_cameras(config: dict) -> None:
                             # Alignment was already attempted this session
                             # and pose is still off — alert loudly but do NOT
                             # fail: pose drift never blocks the record script.
-                            print("")
-                            print(
-                                f"WARNING: topdown camera pose still off "
-                                f"after alignment: {exc}"
-                            )
-                            print(
-                                "Proceeding anyway — pose drift is alert-only. "
-                                "Fix the mount later with "
+                            UI.warn(f"topdown pose still off after alignment: {exc}")
+                            UI.detail(
+                                "proceeding anyway — pose drift is alert-only.\n"
+                                "fix the mount later with "
                                 "`uv run python scripts/align_topdown_visual.py` "
                                 "if the numbers matter for this session."
                             )
                         else:
                             recommend = present_topdown_drift(exc)
-                            print("")
                             if prompt_yes_no(
                                 "Launch the real-time alignment tool now?",
                                 default=recommend,
@@ -1265,17 +1355,17 @@ def check_cameras(config: dict) -> None:
                             # Declined → warn and proceed. Pose drift never
                             # aborts recording, regardless of severity.
                             if recommend:
-                                print(
-                                    f"WARNING: topdown camera is significantly "
-                                    f"off (alignment recommended, declined): {exc}"
+                                UI.warn(
+                                    f"topdown significantly off "
+                                    f"(alignment recommended, declined): {exc}"
                                 )
-                                print(
-                                    "Run `uv run python scripts/align_topdown_visual.py` "
-                                    "later to fix it. Proceeding with recording now."
+                                UI.detail(
+                                    "run `uv run python scripts/align_topdown_visual.py` "
+                                    "later to fix it. proceeding with recording now."
                                 )
                             else:
-                                print(
-                                    "Proceeding without alignment. The setup "
+                                UI.detail(
+                                    "proceeding without alignment. the setup "
                                     "is off but within the acceptable range "
                                     "for this session."
                                 )
@@ -1287,7 +1377,7 @@ def check_cameras(config: dict) -> None:
 
     save_camera_memo(config)
     save_reference_frames(reference_frames)
-    print("Okay, USB cameras receiving frames")
+    UI.ok("USB cameras receiving frames")
 
 
 def kill_stale_lerobot_processes() -> None:
@@ -1306,17 +1396,19 @@ def kill_stale_lerobot_processes() -> None:
 
 
 def main() -> None:
+    UI.header("yams · setup check")
     kill_stale_lerobot_processes()
     config = load_config()
     check_cans(config)
     if os.environ.get("SKIP_LEADERS", "").lower() in ("1", "true", "yes"):
         # TEMP: leader bus is flaky due to a cut cable into right-leader motor 4.
         # Inference doesn't drive the followers from the leaders, so skip when set.
-        print("Skipping leader check (SKIP_LEADERS set)")
+        UI.section("Leader arms")
+        UI.info("skipping leader check (SKIP_LEADERS set)")
     else:
         check_leaders(config)
     check_cameras(config)
-    print("Done")
+    UI.done()
 
 
 if __name__ == "__main__":

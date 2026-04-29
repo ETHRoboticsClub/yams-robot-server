@@ -169,6 +169,33 @@ POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/010000}
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/005000}
 
+# -- April 29 Phase 4 aug sweep (RUN_ID 20260429_224030_52752, fast/predecoded path) --
+# Same dataset + T4 lenient holdout split as 04-27 run. 4 runs trained sequentially overnight:
+#   1) kitchen_sink   60K  (120 holdout-train eps, save every 5K)
+#   2) dark_noise     60K  (120 holdout-train eps, save every 10K)
+#   3) dark_shadow    70K  (120 holdout-train eps, save every 10K)
+#   4) affine_dark   100K  (133 eps incl. holdout — production candidate, save every 10K)
+# Eval runs 1-3 on the 13 held-out eps {1,10,19,24,29,34,50,52,75,101,107,110,126}.
+# Run 4 trained on those — pick a different eval set.
+# Run 1: kitchen_sink 60K (longer-train follow-up to current best)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_kitchen_sink_60k_holdout_20260429_224030_52752/checkpoints/last}     # 60K (final)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_kitchen_sink_60k_holdout_20260429_224030_52752/checkpoints/055000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_kitchen_sink_60k_holdout_20260429_224030_52752/checkpoints/050000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_kitchen_sink_60k_holdout_20260429_224030_52752/checkpoints/045000}
+# Run 2: dark_noise 60K
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_dark_noise_60k_holdout_20260429_224030_52752/checkpoints/last}      # 60K
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_dark_noise_60k_holdout_20260429_224030_52752/checkpoints/050000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_dark_noise_60k_holdout_20260429_224030_52752/checkpoints/040000}
+# Run 3: dark_shadow 70K
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_dark_shadow_70k_holdout_20260429_224030_52752/checkpoints/last}     # 70K
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_dark_shadow_70k_holdout_20260429_224030_52752/checkpoints/060000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_dark_shadow_70k_holdout_20260429_224030_52752/checkpoints/050000}
+# Run 4: affine_dark 100K — FULL T4-lenient (133 eps, holdout reincluded)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_affine_dark_100k_FULL_20260429_224030_52752/checkpoints/last}       # 100K (production candidate)
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_affine_dark_100k_FULL_20260429_224030_52752/checkpoints/090000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_affine_dark_100k_FULL_20260429_224030_52752/checkpoints/080000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_aug_sweep_affine_dark_100k_FULL_20260429_224030_52752/checkpoints/070000}
+
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
 LEFT_CAN=$(yq '.follower.left_arm.can_port' "$YAML")
