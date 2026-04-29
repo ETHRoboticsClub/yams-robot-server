@@ -124,3 +124,27 @@ Before calling `set_camera_profile.sh`, check if `auto_exposure` is already `1` 
 
 **Remaining fix (Option B) — reconnect recovery in `OpenCVCameraCached`:**
 If the reset fires anyway (e.g. on the very first run, or if `check_setup` wasn't run), the read thread hits 10+ consecutive failures and crashes, killing inference. The fix is to catch this in `_read_loop` or `connect()`: on consecutive failures, call `disconnect()` then `connect()` (with retries) instead of raising. The camera comes back on the same stable symlink path within ~2 seconds. This mirrors what `RealSenseCameraCached` already does via `_reset_busy_device()` + `hardware_reset()`. Without this, Option A is a best-effort guard but not a hard guarantee.
+
+## Right leader: cut cable into motor 4 → flaky `sync_read`
+
+**Symptom:** `check_setup.py` fails intermittently on the right leader with either
+`Missing motor IDs: 4` (sometimes 5/6/7) at connect, or
+`Failed to sync read 'Present_Position' on ids=[8..14] ... [TxRxResult] There is no status packet!`.
+Single pings to each motor mostly succeed; `sync_read` of the full bus fails most of the time. Failure rate climbs as the bus warms up / the arm flexes.
+
+**Root cause:** the 3-pin daisy-chain cable going **into motor 4 on the right leader arm** is physically cut/damaged. The bus partially conducts, so individual pings get through, but back-to-back `sync_read` traffic across the whole chain breaks.
+
+**Fix:**
+
+1. Power off both leader power strips before unplugging anything.
+2. On the **right** leader arm (USB cable goes to `/dev/leader-right`, FTDI serial `FT94EW3S`), find the cable that runs into motor 4 — it's the first **small** XL330 motor right after the three big black XM430 motors (counting from the base). It's the cable crossing the visible "step" where the arm necks down.
+3. Replace that cable with a known-good 3-pin Dynamixel daisy-chain cable. While you're in there, also reseat the cable on the other side of motor 4 (4 → 5).
+4. Power back on, then verify:
+
+```bash
+uv run python scripts/check_setup.py
+```
+
+It should pass the leaders step on the first try; rerun 3–4 times to confirm no intermittent drops.
+
+If a spare cable isn't available immediately, runtime teleop (`get_action`) uses `num_retry=10` and tolerates the flakiness — but `check_setup.py` uses 0 retries, so it will keep failing until the cable is replaced.

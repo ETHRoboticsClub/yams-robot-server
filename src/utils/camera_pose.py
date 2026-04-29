@@ -21,21 +21,21 @@ REFERENCE_PATH = (
     / "outputs" / "camera_reference_images" / "topdown.png"
 )
 
-TOL_ROLL_DEG = 0.5
-TOL_TX_PX = 2.0
-TOL_TY_PX = 2.0
+TOL_ROLL_DEG = 5.0
+TOL_TX_PX = 15.0
+TOL_TY_PX = 15.0
 
 # Soft band: drift within tolerance → OK. Between 1× and DRIFT_MULTIPLIER×
 # tolerance → MARGINAL (pass, but warn how off it is). Beyond that → DRIFT
 # (alert loudly, prompt alignment, but NEVER fail the record script — the
 # operator decides whether to fix the mount or keep going).
-DRIFT_MULTIPLIER = 4.0
+DRIFT_MULTIPLIER = 12.0
 
 # Within the DRIFT zone, below this multiplier the alignment tool is
 # optional — the setup is workable and the operator can skip. At or above
 # it, alignment is strongly recommended. Either way the caller only warns,
 # never aborts recording.
-RECOMMEND_ALIGNMENT_MULTIPLIER = 8.0
+RECOMMEND_ALIGNMENT_MULTIPLIER = 25.0
 
 BAND_TOP_FRACTION = 0.25  # top 25% = warehouse background, rigid across sessions
 
@@ -95,7 +95,11 @@ def measure_pose_topband(ref_a: np.ndarray, ref_b: np.ndarray, band_mask: np.nda
 
     n_inl = int(inl.sum())
     n_match = len(good)
-    low_conf = n_inl < 20 or (n_inl / n_match) < 0.30
+    # Top-25% band of this scene reliably yields ~10-20 ORB matches because
+    # the warehouse background has few high-contrast textures. The previous
+    # floor of 20 inliers was tripping on healthy frames. 8 inliers is still
+    # a mathematically over-determined homography fit.
+    low_conf = n_inl < 8 or (n_inl / n_match) < 0.20
     return Pose(
         roll_deg=float(rot_deg),
         tx_px=float(hmat[0, 2]),

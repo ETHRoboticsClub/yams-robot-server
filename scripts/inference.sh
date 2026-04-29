@@ -153,7 +153,21 @@ RESET_TIME_S=${RESET_TIME_S:-10}
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_25_random80_seed42_20260425_195053_232215/checkpoints/last}                # cell 25: random 80% (204), val 20% (51) — within-distribution generalization
 # POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p3_26_sat_train_rest_val_20260425_195053_232215/checkpoints/last}             # cell 26: train sat T2 (131), val mon+tue+wed (120) — Sat alone vs other days
 
-POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_michael_mat_fan_v1_fast_20260425_155404_183070/checkpoints/last}   # carton box saturday — Phase-1 cell-10 stand-in (T5 + kitchen_sink-style aug) FIRST NEARLY WORKING VERSION!!!!!!!!!!
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/sat_michael_mat_fan_v1_fast_20260425_155404_183070/checkpoints/last}   # carton box saturday — Phase-1 cell-10 stand-in (T5 + kitchen_sink-style aug) FIRST NEARLY WORKING VERSION!!!!!!!!!!
+
+# -- April 27 Phase 4 steps-curve (RUN_ID 20260427_115142_420656, fast/predecoded path) --
+# Dataset: ETHRC/yams-carton-box-closing-sat-michael-mat-varing-fan-position-25-04-2025
+# T4 lenient (drops eps 2,12,17) + kitchen_sink aug, 90/10 holdout split (seed=42),
+# 120 train eps / 13 held-out eps {1,10,19,24,29,34,50,52,75,101,107,110,126}, 35K steps.
+# Held-out list: analytics/output/sweep_lists/sat_T4_lenient_holdout10_seed42.episodes.txt
+# Checkpoints: 5K, 10K, 15K, 20K, 25K, 30K, 35K (==last) — for steps-vs-success-rate sweep.
+POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/last}   # 35K steps (final) — primary eval target on the 13 holdout eps
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/030000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/025000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/020000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/015000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/010000}
+# POLICY_PATH=${POLICY_PATH:-/home/ethrc/Desktop/training/checkpoints/act/p4_steps_curve_T4_kitchen_sink_holdout_20260427_115142_420656/checkpoints/005000}
 
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")

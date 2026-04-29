@@ -26,7 +26,8 @@
       "Bash(/home/ethrc/Desktop/yams-robot-server/.venv/bin/lerobot-dataset-viz --help)",
       "Bash(python3 -c \"import json; info=json.load\\(open\\('/home/ethrc/.cache/huggingface/lerobot/ETHRC/yams-carton-box-closing-fri-tom-mat-varing-fan-position/meta/info.json'\\)\\); print\\('\\\\n'.join\\(sorted\\(info['features'].keys\\(\\)\\)\\)\\)\")",
       "Bash(lsusb -t)",
-      "Bash(lsof /dev/video*)"
+      "Bash(lsof /dev/video*)",
+      "Bash(python scripts/check_setup.py)"
     ]
   }
 }

@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -19,7 +20,9 @@ CAPTURED_IMAGES = ROOT / "outputs" / "captured_images"
 REFERENCE_IMAGES = ROOT / "outputs" / "camera_reference_images"
 CAMERA_PROFILE_SCRIPT = ROOT / "scripts" / "set_camera_profile.sh"
 ALIGN_TOPDOWN_SCRIPT = ROOT / "scripts" / "align_topdown_visual.py"
+RESET_CAN_SCRIPT = ROOT / "third_party" / "i2rt" / "scripts" / "reset_all_can.sh"
 CAMERA_MEMO_PATH = ROOT / ".camera-signatures.json"
+CAN_MEMO_PATH = ROOT / ".can-signatures.json"
 CAMERA_SIGNATURE_KEYS = ("ID_SERIAL_SHORT", "ID_SERIAL", "ID_PATH")
 WRIST_CAMERA_NAMES = ("right_wrist", "left_wrist")
 IMAGE_MATCH_MIN_SCORE = 0.72
@@ -45,45 +48,342 @@ def load_config() -> dict:
         return yaml.safe_load(f)
 
 
-def check_cans(config: dict) -> None:
+def can_iface_serial(iface: str) -> str | None:
+    """USB iSerialNumber of the gs_usb adapter backing `iface`, or None.
+
+    Walks the netdev's device tree and returns the first ATTRS{serial} —
+    that's the USB device (parent of the USB interface), which on a gs_usb
+    CAN adapter is the unit's hard-coded serial.
+    """
+    sysfs = Path("/sys/class/net") / iface
+    if not sysfs.exists():
+        return None
+    try:
+        result = subprocess.run(
+            ["udevadm", "info", "-a", "-p", str(sysfs)],
+            check=False, capture_output=True, text=True,
+        )
+    except FileNotFoundError:
+        return None
+    if result.returncode != 0:
+        return None
+    match = re.search(r'ATTRS\{serial\}=="([^"]+)"', result.stdout)
+    return match.group(1) if match else None
+
+
+def load_can_memo() -> dict[str, str]:
+    if not CAN_MEMO_PATH.exists():
+        return {}
+    try:
+        data = json.loads(CAN_MEMO_PATH.read_text())
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_can_memo(config: dict) -> None:
+    memo: dict[str, str] = {}
+    for side in ("left", "right"):
+        iface = config["follower"][f"{side}_arm"]["can_port"]
+        serial = can_iface_serial(iface)
+        if serial:
+            memo[side] = serial
+    if memo:
+        CAN_MEMO_PATH.write_text(json.dumps(memo, indent=2, sort_keys=True) + "\n")
+
+
+def replace_can_ports_in_yaml(ports_by_side: dict[str, str]) -> None:
+    """Rewrite follower.{left,right}_arm.can_port in arms.yaml in place.
+
+    Line-based to mirror replace_camera_paths_in_yaml — a YAML round-tripper
+    would also reformat unrelated quoting/comments.
+    """
+    lines = ARMS_CONFIG.read_text().splitlines()
+    in_follower = False
+    current_side: str | None = None
+    updated: set[str] = set()
+    new_lines: list[str] = []
+
+    for line in lines:
+        top = re.match(r"^([A-Za-z0-9_]+):\s*$", line)
+        if top:
+            in_follower = top.group(1) == "follower"
+            current_side = None
+            new_lines.append(line)
+            continue
+
+        if in_follower:
+            arm = re.match(r"^  (left|right)_arm:\s*$", line)
+            if arm:
+                current_side = arm.group(1)
+                new_lines.append(line)
+                continue
+
+            cp = re.match(r"^(\s*)can_port:\s*.*$", line)
+            if cp and current_side in ports_by_side:
+                new_lines.append(f"{cp.group(1)}can_port: {ports_by_side[current_side]}")
+                updated.add(current_side)
+                continue
+
+        new_lines.append(line)
+
+    missing = sorted(set(ports_by_side) - updated)
+    if missing:
+        raise RuntimeError(f"Could not update can_port in {ARMS_CONFIG} for: {missing}")
+
+    ARMS_CONFIG.write_text("\n".join(new_lines) + "\n")
+
+
+def apply_memoized_can_ports(config: dict) -> None:
+    """If a saved CAN serial memo says left/right adapters have specific
+    serials, look up which canN each lives on right now and rewrite arms.yaml
+    so left_arm/right_arm point at the right interfaces. Handles kernel
+    reordering of can0/can1 between runs.
+    """
+    memo = load_can_memo()
+    if not memo:
+        return
+
+    iface_to_serial: dict[str, str] = {}
+    for sysfs in sorted(Path("/sys/class/net").glob("can*")):
+        serial = can_iface_serial(sysfs.name)
+        if serial:
+            iface_to_serial[sysfs.name] = serial
+
+    desired: dict[str, str] = {}
+    for side in ("left", "right"):
+        target = memo.get(side)
+        if not target:
+            continue
+        matches = [iface for iface, s in iface_to_serial.items() if s == target]
+        if len(matches) == 1:
+            desired[side] = matches[0]
+
+    changes: dict[str, str] = {}
+    for side, iface in desired.items():
+        if config["follower"][f"{side}_arm"]["can_port"] != iface:
+            config["follower"][f"{side}_arm"]["can_port"] = iface
+            changes[side] = iface
+
+    if changes:
+        replace_can_ports_in_yaml(changes)
+        print(
+            "Auto-corrected CAN port mapping from saved adapter signatures: "
+            + ", ".join(f"{side}_arm={iface}" for side, iface in sorted(changes.items()))
+        )
+
+
+def can_state(can: str) -> str | None:
+    state_path = Path("/sys/class/net") / can / "operstate"
+    if not state_path.exists():
+        return None
+    return state_path.read_text().strip()
+
+
+def find_failing_cans(config: dict) -> list[tuple[str, str, str]]:
+    failures: list[tuple[str, str, str]] = []
     for side in ("left", "right"):
         can = config["follower"][f"{side}_arm"]["can_port"]
-        state_path = Path("/sys/class/net") / can / "operstate"
-        if not state_path.exists():
+        state = can_state(can)
+        if state is None:
+            failures.append((side, can, "missing"))
+        elif state == "down":
+            # CAN interfaces report "unknown" once admin-up because they have
+            # no carrier concept — only literal "down" means not yet brought up.
+            failures.append((side, can, "down"))
+    return failures
+
+
+def print_can_link_states(cans: list[str]) -> None:
+    for can in cans:
+        _, output = run_command_text(["ip", "link", "show", can])
+        print(output or f"(no output for {can})")
+
+
+def reset_can_buses() -> int:
+    print(f"Running: sudo bash {RESET_CAN_SCRIPT.relative_to(ROOT)}")
+    # Don't capture output — sudo's password prompt and the script's progress
+    # both need to reach the terminal directly.
+    result = subprocess.run(["bash", str(RESET_CAN_SCRIPT)], cwd=ROOT, check=False)
+    return result.returncode
+
+
+def check_cans(config: dict) -> None:
+    apply_memoized_can_ports(config)
+
+    cans = sorted({
+        config["follower"][f"{side}_arm"]["can_port"] for side in ("left", "right")
+    })
+
+    repaired = False
+    while True:
+        failures = find_failing_cans(config)
+        if not failures:
+            print("Okay, cans connected")
+            print("CAN interface mapping:")
+            print_can_link_states(cans)
+            save_can_memo(config)
+            return
+
+        for side, can, reason in failures:
+            label = "not found" if reason == "missing" else "is down"
+            print(f"{side} follower CAN interface {label}: {can}")
+        print("Current CAN state:")
+        print_can_link_states(cans)
+
+        if repaired:
+            still_failing = ", ".join(can for _, can, _ in failures)
             raise RuntimeError(
-                f"{side} follower CAN interface not found: {can}\n"
-                f"{can_fix_instructions(can)}"
+                f"CAN reset ran, but interfaces are still not up: {still_failing}.\n"
+                f"{can_fix_instructions(failures[0][1])}"
             )
-        if state_path.read_text().strip() == "down":
+
+        if not prompt_yes_no(
+            "Run `sudo bash third_party/i2rt/scripts/reset_all_can.sh` now?",
+            default=True,
+        ):
             raise RuntimeError(
-                f"{side} follower CAN interface is down: {can}\n"
-                f"{can_fix_instructions(can)}"
+                f"CAN reset declined.\n{can_fix_instructions(failures[0][1])}"
             )
-    print("Okay, cans connected")
+
+        rc = reset_can_buses()
+        if rc != 0:
+            raise RuntimeError(
+                f"reset_all_can.sh exited with code {rc}; inspect output above and rerun."
+            )
+        repaired = True
+
+
+class _LeaderPowerOffError(Exception):
+    """FTDI port is reachable but zero Dynamixel motors responded.
+
+    The signature is the lerobot bus reporting `Full found motor list ... {}`.
+    This always means the leader power strip is off — motors are powered
+    separately from the USB. Used to short-circuit the connect retry loop
+    so the operator gets prompted instead of waiting through 9 useless retries.
+    """
+
+
+# Substring lerobot prints when the FTDI handshake completes but no motor
+# replied to the model-number ping. Whitespace tolerated by `in` check.
+LEADER_POWER_OFF_MARKER = "Full found motor list (id: model_number):\n{}"
+
+
+def _safe_disconnect(leader) -> None:
+    # Disconnect calls disable_torque, which itself needs motor responses; if
+    # motors are silent it raises ConnectionError. Swallow so callers can
+    # finish their cleanup path without losing the original error.
+    try:
+        if leader.bus.is_connected:
+            leader.bus.disconnect()
+    except Exception:
+        pass
+
+
+def _check_leader_side(side: str, port: str, config: dict, free_port_fn) -> None:
+    print(f"Checking {side} leader at {port}...", flush=True)
+    # Kill any process still holding the FTDI port — a prior aborted
+    # lerobot-record can leave the port open, which makes bus.connect()
+    # hang forever waiting on the OS to grant access.
+    free_port_fn(port)
+    leader = YamsLeader(YamsLeaderConfig(port=port, side=side))
+    try:
+        # Retry handshake — bus is flaky from a cut cable into a wrist
+        # motor, so a single attempt drops ~30-80% of the time.
+        last_error: Exception | None = None
+        for attempt in range(1, 11):
+            print(f"  {side} leader bus.connect attempt {attempt}/10...", flush=True)
+            try:
+                leader.bus.connect()
+                print(f"  {side} leader bus.connect attempt {attempt}/10 OK", flush=True)
+                break
+            except Exception as e:
+                last_error = e
+                print(f"  {side} leader bus.connect attempt {attempt}/10 FAILED: {e}", flush=True)
+                if LEADER_POWER_OFF_MARKER in str(e):
+                    # Power off — the next 9 retries cannot help, only the
+                    # operator can. Bubble up so check_leaders can prompt.
+                    raise _LeaderPowerOffError(str(e)) from e
+                _safe_disconnect(leader)
+                time.sleep(0.2)
+        else:
+            raise last_error if last_error else RuntimeError(
+                f"{side} leader failed to connect after 10 attempts"
+            )
+        positions = None
+        last_error = None
+        for attempt in range(1, 11):
+            print(f"  {side} leader sync_read attempt {attempt}/10...", flush=True)
+            try:
+                positions = leader.bus.sync_read(
+                    normalize=False, data_name="Present_Position"
+                )
+                print(f"  {side} leader sync_read attempt {attempt}/10 OK", flush=True)
+                break
+            except Exception as e:
+                last_error = e
+                print(f"  {side} leader sync_read attempt {attempt}/10 FAILED: {e}", flush=True)
+                time.sleep(0.2)
+        else:
+            raise last_error if last_error else RuntimeError(
+                f"{side} leader sync_read failed after 10 attempts"
+            )
+    finally:
+        _safe_disconnect(leader)
+
+    expected = set(config["leader"][f"{side}_arm"]["motors"])
+    missing = expected - set(positions)
+    if missing:
+        raise RuntimeError(f"{side} leader did not return positions for: {sorted(missing)}")
+
+    calibration = ROOT / "src/lerobot_teleoperator_gello/calibration" / f"leader_calibration_{side}.yaml"
+    if not calibration.exists():
+        raise RuntimeError(f"{side} leader calibration offsets not found: {calibration}")
 
 
 def check_leaders(config: dict) -> None:
+    sys.path.insert(0, str(ROOT / "src"))
+    from utils.connection import _free_port  # noqa: E402
+
+    power_prompted = False
+
     for side in ("left", "right"):
         port = config["leader"][f"{side}_arm"]["port"]
         if not Path(port).exists():
             raise RuntimeError(f"{side} leader port not found: {port}")
 
-        leader = YamsLeader(YamsLeaderConfig(port=port, side=side))
-        try:
-            leader.bus.connect()
-            positions = leader.bus.sync_read(normalize=False, data_name="Present_Position")
-        finally:
-            if leader.bus.is_connected:
-                leader.bus.disconnect()
-
-        expected = set(config["leader"][f"{side}_arm"]["motors"])
-        missing = expected - set(positions)
-        if missing:
-            raise RuntimeError(f"{side} leader did not return positions for: {sorted(missing)}")
-
-        calibration = ROOT / "src/lerobot_teleoperator_gello/calibration" / f"leader_calibration_{side}.yaml"
-        if not calibration.exists():
-            raise RuntimeError(f"{side} leader calibration offsets not found: {calibration}")
+        while True:
+            try:
+                _check_leader_side(side, port, config, _free_port)
+                break
+            except _LeaderPowerOffError as exc:
+                if power_prompted:
+                    # Already asked once this run — operator already had a
+                    # chance to flip the strip. Don't loop forever.
+                    raise RuntimeError(
+                        f"{side} leader still has 0 motors responding "
+                        f"after the power-strip prompt. Check the strip, "
+                        f"the cable into the leader, and the fuse."
+                    ) from exc
+                power_prompted = True
+                print("")
+                print(
+                    f"  {side} leader port is open, but 0 motors responded "
+                    f"(expected 7).\n"
+                    f"  This is the classic 'forgot the leader power strip' signature.\n"
+                    f"  The FTDI dongle is USB-bus-powered so it works fine even "
+                    f"when the motors are dead."
+                )
+                if not prompt_yes_no(
+                    "Did you turn on electricty you dumb ass?",
+                    default=False,
+                ):
+                    raise RuntimeError(
+                        f"{side} leader has no motor responses and the "
+                        f"power strip wasn't turned on. Flip it and rerun."
+                    ) from exc
+                print("Well, good job, now let's continue.")
+                # Retry this side from scratch (fresh YamsLeader instance).
     print("Okay, leader USBs receiving offsets")
 
 
@@ -745,7 +1045,25 @@ def check_realsense_camera(name: str, camera: dict) -> list[np.ndarray]:
     import time
 
     serial = str(camera["serial_number_or_name"])
-    devices = list(rs.context().query_devices())
+    # query_devices() occasionally fails with UVCIOC_CTRL_QUERY errors when a
+    # prior lerobot-record left the UVC control surface in a broken state.
+    # Retry with a short backoff — the device usually recovers within a
+    # second or two once any stale process is gone.
+    devices = []
+    last_error: Exception | None = None
+    for attempt in range(1, 6):
+        try:
+            devices = list(rs.context().query_devices())
+            break
+        except Exception as e:
+            last_error = e
+            print(f"RealSense query_devices attempt {attempt}/5 failed: {e}")
+            time.sleep(1.0)
+    else:
+        raise RuntimeError(
+            f"RealSense query_devices failed after 5 attempts: {last_error}\n"
+            "Try replugging the RealSense USB cable."
+        )
     serials = {device.get_info(rs.camera_info.serial_number) for device in devices}
     if serial not in serials:
         found = ", ".join(serials) or "none"
@@ -908,6 +1226,13 @@ def check_cameras(config: dict) -> None:
             elif camera_type == "intelrealsense-cached":
                 frames = check_realsense_camera(name, camera)
                 if name == "topdown":
+                    if os.environ.get("SKIP_TOPDOWN_POSE", "").lower() in ("1", "true", "yes"):
+                        # The RealSense streams fine; we just don't gate on
+                        # mount alignment this session. Useful when the
+                        # committed reference image doesn't match the current
+                        # scene yet (e.g. fresh setup, swapped mat).
+                        print("Skipping topdown pose check (SKIP_TOPDOWN_POSE set)")
+                        continue
                     try:
                         check_topdown_pose(frames)
                     except TopdownPoseDriftError as exc:
@@ -965,10 +1290,31 @@ def check_cameras(config: dict) -> None:
     print("Okay, USB cameras receiving frames")
 
 
+def kill_stale_lerobot_processes() -> None:
+    """Kill any stale lerobot-record / lerobot-teleoperate / yams_server.py
+    processes that may still be holding cameras or motor buses open from a
+    previous aborted run. Without this, query_devices() can fail mid-call
+    with UVCIOC_CTRL_QUERY errors and the motor bus can be locked.
+    """
+    subprocess.run(
+        "pgrep -f 'lerobot-record|lerobot-teleoperate|yams_server.py' "
+        f"| grep -vx {os.getpid()} | xargs -r kill",
+        shell=True,
+        check=False,
+    )
+    time.sleep(0.5)
+
+
 def main() -> None:
+    kill_stale_lerobot_processes()
     config = load_config()
     check_cans(config)
-    check_leaders(config)
+    if os.environ.get("SKIP_LEADERS", "").lower() in ("1", "true", "yes"):
+        # TEMP: leader bus is flaky due to a cut cable into right-leader motor 4.
+        # Inference doesn't drive the followers from the leaders, so skip when set.
+        print("Skipping leader check (SKIP_LEADERS set)")
+    else:
+        check_leaders(config)
     check_cameras(config)
     print("Done")
 

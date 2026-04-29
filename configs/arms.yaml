@@ -5,7 +5,7 @@ collision:
 
 follower:
   left_arm:
-    can_port: can1
+    can_port: can0
     server_port: 11333
     motors:
       joint_1:
@@ -23,7 +23,7 @@ follower:
       gripper:
         label: Gripper
   right_arm:
-    can_port: can0
+    can_port: can1
     server_port: 11334
     motors:
       joint_1:
@@ -150,7 +150,7 @@ cameras:
       auto_exposure_max: 130
     left_wrist:
       type: opencv-cached
-      index_or_path: /dev/video8
+      index_or_path: /dev/video2
       fps: 30
       width: 640
       height: 480

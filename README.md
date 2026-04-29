@@ -21,7 +21,7 @@ NUM_EPISODES=50 EPISODE_TIME_S=50 PUSH_TO_HUB=true bash scripts/record.sh --log
 
 ---
 
-## First-time setup (new devs, read this before cloning repo on personal machine)
+## First-time setup (new devs, read this before cloning repo on personal machine)apte
 
 ### 1. Request access to the private `i2rt` fork
 
@@ -35,7 +35,7 @@ cd yams-robot-server
 git submodule update --init --recursive
 ```
 
-If you hit `upload-pack: not our ref <sha>`, the pinned submodule commit isn't reachable on the fork (force-pushed or never pushed). Fall back to the branch tip:
+If you hit `upload-pack: not our ref <sha>`, the pinned submodule commit apteisn't reachable on the fork (force-pushed or never pushed). Fall back to the branch tip:
 
 ```bash
 git -C third_party/i2rt fetch --all
@@ -52,7 +52,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 ```
 
-### 4. Install dependencies
+### 4. Install dependenciesfrom a separate barrel jack (usually plugged into th
 
 ```bash
 uv sync

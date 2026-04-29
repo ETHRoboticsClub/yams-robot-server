@@ -100,8 +100,32 @@ class YamsLeader(Teleoperator):
         if self.is_connected:
             raise DeviceAlreadyConnectedError(f"{self} already connected")
 
-        self.bus.connect()
-        self.configure()
+        # Retry handshake AND configure() together — the Dynamixel bus is
+        # currently flaky (cut cable into a wrist motor) and both the
+        # handshake (broadcast ping) and the configure-time writes drop
+        # ~30-80% of the time. Each attempt is independent, so retrying
+        # the whole connect+configure sequence usually lands within a few tries.
+        last_error: Exception | None = None
+        for attempt in range(1, 11):
+            try:
+                self.bus.connect()
+                self.configure()
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    f"{self} connect attempt {attempt}/10 failed: {e}"
+                )
+                try:
+                    if self.bus.is_connected:
+                        self.bus.disconnect()
+                except Exception:
+                    pass
+                time.sleep(0.2)
+        else:
+            raise last_error if last_error else RuntimeError(
+                f"{self} failed to connect after 10 attempts"
+            )
 
         logger.info(f"{self} connected.")
 
