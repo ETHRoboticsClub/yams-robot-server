@@ -252,23 +252,23 @@ class TeleopControlApp:
     # ── trajectory browser ────────────────────────────────────────────────
 
     def _refresh_traj_list(self) -> None:
-        self.traj_listbox.delete(0, "end")
-        self._traj_indices: list[int] = []
-        for i, ep in enumerate(self.episodes):
-            if ep["saved"]:
-                dur = _fmt(ep["duration"])
-                self.traj_listbox.insert("end", f"  #{i+1:>3}  {dur}  ✓ Saved")
-                self._traj_indices.append(i)
-
-    def _on_traj_select(self, event=None) -> None:
-        sel = self.traj_listbox.curselection()
-        if not sel:
-            return
-        ep_idx = self._traj_indices[sel[0]]
-        frames = self.episodes[ep_idx].get("frames")
-        if frames:
-            self.replay_frames = frames
-            self.replay_idx = 0
+        for w in self.traj_inner.winfo_children():
+            w.destroy()
+        mono10 = tkfont.Font(family="Monospace", size=10)
+        saved = [(i, ep) for i, ep in enumerate(self.episodes) if ep["saved"]]
+        for ep_idx, ep in saved:
+            dur = _fmt(ep["duration"])
+            def _play(idx: int = ep_idx) -> None:
+                self.replay_frames = self.episodes[idx]["frames"]
+                self.replay_idx = 0
+            tk.Button(
+                self.traj_inner,
+                text=f"  #{ep_idx + 1:>3}  {dur}  ▶ Play",
+                bg="#181825", fg="#a6e3a1", activebackground="#313244",
+                font=mono10, relief="flat", anchor="w",
+                command=_play,
+            ).pack(fill="x", padx=4, pady=2)
+        self.traj_canvas.configure(scrollregion=self.traj_canvas.bbox("all"))
 
     # ── log ───────────────────────────────────────────────────────────────
 
@@ -428,14 +428,13 @@ class TeleopControlApp:
                  fg="#89b4fa", font=bold13, anchor="w").pack(fill="x")
         traj_scroll = tk.Scrollbar(self.traj_frame)
         traj_scroll.pack(side="right", fill="y")
-        self.traj_listbox = tk.Listbox(self.traj_frame, height=6, bg="#181825",
-                                       fg="#a6e3a1", font=mono10, relief="flat",
-                                       selectbackground="#313244", selectforeground="#cdd6f4",
-                                       yscrollcommand=traj_scroll.set)
-        self.traj_listbox.pack(side="left", fill="x", expand=True)
-        self.traj_listbox.bind("<<ListboxSelect>>", self._on_traj_select)
-        traj_scroll.config(command=self.traj_listbox.yview)
-        self._traj_indices: list[int] = []
+        self.traj_canvas = tk.Canvas(self.traj_frame, bg="#181825", height=140,
+                                     highlightthickness=0,
+                                     yscrollcommand=traj_scroll.set)
+        self.traj_canvas.pack(side="left", fill="x", expand=True)
+        traj_scroll.config(command=self.traj_canvas.yview)
+        self.traj_inner = tk.Frame(self.traj_canvas, bg="#181825")
+        self.traj_canvas.create_window((0, 0), window=self.traj_inner, anchor="nw")
 
         return frame
 
