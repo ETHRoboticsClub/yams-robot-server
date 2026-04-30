@@ -1,4 +1,5 @@
 """Recording control panel with live camera preview and episode log."""
+import functools
 import io
 import math
 import struct
@@ -194,9 +195,10 @@ class TeleopControlApp:
             return
         self._last_action = now
         frames = [list(buf) for buf in self.frame_buffers]
+        self._record(saved=True, frames=frames)
+        self._replay_ep_idx = len(self.episodes) - 1
         self.replay_frames = frames
         self.replay_idx = 0
-        self._record(saved=True, frames=frames)
         _play_tone(880, 140)
         _keyboard.press(Key.right)
         _keyboard.release(Key.right)
@@ -252,6 +254,11 @@ class TeleopControlApp:
 
     # ── trajectory browser ────────────────────────────────────────────────
 
+    def _play_trajectory(self, ep_idx: int) -> None:
+        self._replay_ep_idx = ep_idx
+        self.replay_frames = self.episodes[ep_idx]["frames"]
+        self.replay_idx = 0
+
     def _refresh_traj_list(self) -> None:
         for w in self.traj_inner.winfo_children():
             w.destroy()
@@ -259,16 +266,12 @@ class TeleopControlApp:
         saved = [(i, ep) for i, ep in enumerate(self.episodes) if ep["saved"]]
         for ep_idx, ep in saved:
             dur = _fmt(ep["duration"])
-            def _play(idx: int = ep_idx) -> None:
-                self._replay_ep_idx = idx
-                self.replay_frames = self.episodes[idx]["frames"]
-                self.replay_idx = 0
             tk.Button(
                 self.traj_inner,
                 text=f"  #{ep_idx + 1:>3}  {dur}  ▶ Play",
                 bg="#181825", fg="#a6e3a1", activebackground="#313244",
                 font=mono10, relief="flat", anchor="w",
-                command=_play,
+                command=functools.partial(self._play_trajectory, ep_idx),
             ).pack(fill="x", padx=4, pady=2)
         self.traj_canvas.configure(scrollregion=self.traj_canvas.bbox("all"))
 
@@ -344,7 +347,8 @@ class TeleopControlApp:
                         self.replay_idx = 0
 
             if self.replay_frames is not None:
-                ep_label = f"EP #{(self._replay_ep_idx or 0) + 1} ▶"
+                ep_num   = self._replay_ep_idx + 1 if self._replay_ep_idx is not None else "?"
+                ep_label = f"EP #{ep_num} ▶"
                 for i, frames in enumerate(self.replay_frames):
                     if not frames:
                         continue
