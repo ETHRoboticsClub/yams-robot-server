@@ -92,6 +92,7 @@ class TeleopControlApp:
         self.replay_frames:  list[list] | None = None
         self.replay_idx:     int               = 0
         self._paused:        bool              = False
+        self._last_action:   float             = 0.0   # debounce injected keys
         self._init_start:    float             = time.time()
         self._in_init:       bool              = True
         self._spinner_idx:   int               = 0
@@ -187,6 +188,10 @@ class TeleopControlApp:
     def _save(self) -> None:
         if self._paused:
             return
+        now = time.time()
+        if now - self._last_action < 0.5:
+            return
+        self._last_action = now
         frames = [list(buf) for buf in self.frame_buffers]
         self.replay_frames = frames
         self.replay_idx = 0
@@ -198,12 +203,20 @@ class TeleopControlApp:
     def _discard(self) -> None:
         if self._paused:
             return
+        now = time.time()
+        if now - self._last_action < 0.5:
+            return
+        self._last_action = now
         self._record(saved=False, frames=None)
         _play_tone(330, 220)
         _keyboard.press(Key.left)
         _keyboard.release(Key.left)
 
     def _stop(self) -> None:
+        now = time.time()
+        if now - self._last_action < 0.5:
+            return
+        self._last_action = now
         _keyboard.press(Key.esc)
         _keyboard.release(Key.esc)
 
