@@ -196,9 +196,6 @@ class TeleopControlApp:
         self._last_action = now
         frames = [list(buf) for buf in self.frame_buffers]
         self._record(saved=True, frames=frames)
-        self._replay_ep_idx = len(self.episodes) - 1
-        self.replay_frames = frames
-        self.replay_idx = 0
         _play_tone(880, 140)
         _keyboard.press(Key.right)
         _keyboard.release(Key.right)
