@@ -29,10 +29,9 @@ _SHM_CAMERAS = [
 _PREVIEW_W      = 280
 _PREVIEW_H      = 210
 _REFRESH_MS     = 100
-_MIN_EPISODE_S  = 5
 _REPLAY_BUFFER  = 30
 _REPLAY_STEP_MS = 80
-_CAM_FRESH_S    = 2.0   # shm file must be this recent to count as online
+_CAM_FRESH_S    = 2.0
 _SPINNER        = ["|", "/", "—", "\\"]
 
 
@@ -92,7 +91,7 @@ class TeleopControlApp:
         self.frame_buffers:  list[deque]       = [deque(maxlen=_REPLAY_BUFFER) for _ in _SHM_CAMERAS]
         self.replay_frames:  list[list] | None = None
         self.replay_idx:     int               = 0
-        self.pending_save:   bool              = False
+        self._paused:        bool              = False
         self._init_start:    float             = time.time()
         self._in_init:       bool              = True
         self._spinner_idx:   int               = 0
@@ -107,20 +106,17 @@ class TeleopControlApp:
         mono10 = tkfont.Font(family="Monospace", size=10)
 
         frame = tk.Frame(root, bg="#1e1e2e")
-
         tk.Label(frame, text="YAMS Robot", bg="#1e1e2e", fg="#cdd6f4",
                  font=bold20).pack(pady=(40, 4))
         self.init_status_label = tk.Label(frame, text="Initializing...",
                                           bg="#1e1e2e", fg="#585b70", font=mono11)
         self.init_status_label.pack()
-
         self.init_timer_label = tk.Label(frame, text="00:00", bg="#1e1e2e",
                                          fg="#89b4fa", font=bold28)
         self.init_timer_label.pack(pady=(8, 24))
 
-        # camera status rows
         cam_box = tk.Frame(frame, bg="#313244", padx=20, pady=16)
-        cam_box.pack(padx=40, pady=(0, 30))
+        cam_box.pack(padx=40, pady=(0, 40))
         tk.Label(cam_box, text="Camera Status", bg="#313244", fg="#89b4fa",
                  font=bold14).pack(anchor="w", pady=(0, 10))
 
@@ -130,8 +126,7 @@ class TeleopControlApp:
             row.pack(fill="x", pady=3)
             tk.Label(row, text=f"  {name}", bg="#313244", fg="#cdd6f4",
                      font=mono10, width=14, anchor="w").pack(side="left")
-            lbl = tk.Label(row, text="○  Waiting", bg="#313244",
-                           fg="#585b70", font=mono10)
+            lbl = tk.Label(row, text="○  Waiting", bg="#313244", fg="#585b70", font=mono10)
             lbl.pack(side="right")
             self.cam_status_labels.append(lbl)
 
@@ -143,8 +138,9 @@ class TeleopControlApp:
         elapsed = time.time() - self._init_start
         self.init_timer_label.config(text=_fmt(elapsed))
         self._spinner_idx = (self._spinner_idx + 1) % len(_SPINNER)
-        spin = _SPINNER[self._spinner_idx]
-        self.init_status_label.config(text=f"{spin}  Waiting for cameras...")
+        self.init_status_label.config(
+            text=f"{_SPINNER[self._spinner_idx]}  Waiting for cameras..."
+        )
         self.root.after(500, self._tick_init_timer)
 
     def _check_init(self) -> None:
@@ -158,10 +154,11 @@ class TeleopControlApp:
                 online = p.exists() and (now - p.stat().st_mtime) < _CAM_FRESH_S
             except Exception:
                 online = False
-            if online:
-                self.cam_status_labels[i].config(text="●  Online", fg="#a6e3a1")
-            else:
-                self.cam_status_labels[i].config(text="○  Waiting", fg="#585b70")
+            self.cam_status_labels[i].config(
+                text="●  Online" if online else "○  Waiting",
+                fg="#a6e3a1" if online else "#585b70",
+            )
+            if not online:
                 all_online = False
 
         if all_online:
@@ -185,32 +182,23 @@ class TeleopControlApp:
         self.root.after(500, self._tick_timer)
         self.root.after(_REFRESH_MS, self._update_frames)
 
-    # ── main screen actions ───────────────────────────────────────────────
+    # ── actions ───────────────────────────────────────────────────────────
 
     def _save(self) -> None:
-        duration = time.time() - self.episode_start
-        if duration < _MIN_EPISODE_S and not self.pending_save:
-            self.pending_save = True
-            self.save_btn.config(bg="#fab387")
-            self.warn_label.config(
-                text=f"Short episode (<{_MIN_EPISODE_S}s) — press Save again to confirm"
-            )
-            self.root.after(2500, self._clear_warn)
+        if self._paused:
             return
-        self.pending_save = False
-        self.warn_label.config(text="")
-        self.save_btn.config(bg="#a6e3a1")
-        self.replay_frames = [list(buf) for buf in self.frame_buffers]
+        frames = [list(buf) for buf in self.frame_buffers]
+        self.replay_frames = frames
         self.replay_idx = 0
-        self._record(saved=True)
+        self._record(saved=True, frames=frames)
         _play_tone(880, 140)
         _keyboard.press(Key.right)
         _keyboard.release(Key.right)
 
     def _discard(self) -> None:
-        self.pending_save = False
-        self._clear_warn()
-        self._record(saved=False)
+        if self._paused:
+            return
+        self._record(saved=False, frames=None)
         _play_tone(330, 220)
         _keyboard.press(Key.left)
         _keyboard.release(Key.left)
@@ -219,15 +207,57 @@ class TeleopControlApp:
         _keyboard.press(Key.esc)
         _keyboard.release(Key.esc)
 
-    def _clear_warn(self) -> None:
-        self.pending_save = False
-        self.warn_label.config(text="")
-        self.save_btn.config(bg="#a6e3a1")
+    def _pause(self) -> None:
+        self._paused = True
+        self.pause_btn.config(text="▶  Resume", bg="#89b4fa", command=self._resume)
+        self.save_btn.config(state="disabled")
+        self.discard_btn.config(state="disabled")
+        self.timer_label.config(fg="#585b70")
+        self.log_outer.pack_forget()
+        self.traj_frame.pack(padx=12, pady=(4, 12), fill="x")
+        self._refresh_traj_list()
 
-    def _record(self, saved: bool) -> None:
-        self.episodes.append({"duration": time.time() - self.episode_start, "saved": saved})
+    def _resume(self) -> None:
+        self._paused = False
+        self.replay_frames = None
+        self.pause_btn.config(text="⏸  Pause", bg="#313244", command=self._pause)
+        self.save_btn.config(state="normal")
+        self.discard_btn.config(state="normal")
+        self.episode_start = time.time()
+        self.traj_frame.pack_forget()
+        self.log_outer.pack(padx=12, pady=(4, 12), fill="x")
+
+    def _record(self, saved: bool, frames: list[list] | None) -> None:
+        self.episodes.append({
+            "duration": time.time() - self.episode_start,
+            "saved": saved,
+            "frames": frames,
+        })
         self.episode_start = time.time()
         self._update_log()
+
+    # ── trajectory browser ────────────────────────────────────────────────
+
+    def _refresh_traj_list(self) -> None:
+        self.traj_listbox.delete(0, "end")
+        self._traj_indices: list[int] = []
+        for i, ep in enumerate(self.episodes):
+            if ep["saved"]:
+                dur = _fmt(ep["duration"])
+                self.traj_listbox.insert("end", f"  #{i+1:>3}  {dur}  ✓ Saved")
+                self._traj_indices.append(i)
+
+    def _on_traj_select(self, event=None) -> None:
+        sel = self.traj_listbox.curselection()
+        if not sel:
+            return
+        ep_idx = self._traj_indices[sel[0]]
+        frames = self.episodes[ep_idx].get("frames")
+        if frames:
+            self.replay_frames = frames
+            self.replay_idx = 0
+
+    # ── log ───────────────────────────────────────────────────────────────
 
     def _update_log(self) -> None:
         n_saved     = sum(1 for e in self.episodes if e["saved"])
@@ -244,13 +274,15 @@ class TeleopControlApp:
         self.log_text.see("end")
         self.log_text.config(state="disabled")
 
+    # ── timer ─────────────────────────────────────────────────────────────
+
     def _tick_timer(self) -> None:
-        elapsed = time.time() - self.episode_start
-        self.timer_label.config(
-            text=_fmt(elapsed),
-            fg="#f38ba8" if elapsed < _MIN_EPISODE_S else "#a6e3a1",
-        )
+        if not self._paused:
+            elapsed = time.time() - self.episode_start
+            self.timer_label.config(text=_fmt(elapsed), fg="#a6e3a1")
         self.root.after(500, self._tick_timer)
+
+    # ── camera frames ─────────────────────────────────────────────────────
 
     def _update_frames(self) -> None:
         if not _PIL_AVAILABLE:
@@ -259,19 +291,26 @@ class TeleopControlApp:
 
         if self.replay_frames is not None:
             max_len = max((len(f) for f in self.replay_frames), default=0)
-            if max_len == 0 or self.replay_idx >= max_len:
+            if max_len == 0:
                 self.replay_frames = None
                 self.replay_idx = 0
             else:
-                for i, frames in enumerate(self.replay_frames):
-                    if not frames:
-                        continue
-                    photo = ImageTk.PhotoImage(frames[self.replay_idx % len(frames)])
-                    self.cam_labels[i].configure(image=photo)
-                    self.cam_images[i] = photo
-                self.replay_idx += 1
-                self.root.after(_REPLAY_STEP_MS, self._update_frames)
-                return
+                if self.replay_idx >= max_len:
+                    if self._paused:
+                        self.replay_idx = 0  # loop while paused
+                    else:
+                        self.replay_frames = None
+                        self.replay_idx = 0
+                if self.replay_frames is not None:
+                    for i, frames in enumerate(self.replay_frames):
+                        if not frames:
+                            continue
+                        photo = ImageTk.PhotoImage(frames[self.replay_idx % len(frames)])
+                        self.cam_labels[i].configure(image=photo)
+                        self.cam_images[i] = photo
+                    self.replay_idx += 1
+                    self.root.after(_REPLAY_STEP_MS, self._update_frames)
+                    return
 
         now  = time.time()
         font = _get_fps_font()
@@ -338,35 +377,52 @@ class TeleopControlApp:
                                   bg="#a6e3a1", fg="#1e1e2e", activebackground="#a6e3a1",
                                   relief="flat", padx=8, pady=10, command=self._save)
         self.save_btn.grid(row=0, column=0, padx=6)
-        tk.Button(btn_frame, text="✗  Discard", width=11, font=bold13,
-                  bg="#f38ba8", fg="#1e1e2e", activebackground="#f38ba8",
-                  relief="flat", padx=8, pady=10,
-                  command=self._discard).grid(row=0, column=1, padx=6)
+        self.discard_btn = tk.Button(btn_frame, text="✗  Discard", width=11, font=bold13,
+                                     bg="#f38ba8", fg="#1e1e2e", activebackground="#f38ba8",
+                                     relief="flat", padx=8, pady=10, command=self._discard)
+        self.discard_btn.grid(row=0, column=1, padx=6)
         tk.Button(btn_frame, text="■  Stop", width=11, font=bold13,
                   bg="#313244", fg="#cdd6f4", activebackground="#313244",
                   relief="flat", padx=8, pady=10,
                   command=self._stop).grid(row=0, column=2, padx=6)
+        self.pause_btn = tk.Button(btn_frame, text="⏸  Pause", width=11, font=bold13,
+                                   bg="#313244", fg="#cdd6f4", activebackground="#313244",
+                                   relief="flat", padx=8, pady=10, command=self._pause)
+        self.pause_btn.grid(row=0, column=3, padx=6)
 
-        self.warn_label = tk.Label(frame, text="", bg="#1e1e2e", fg="#fab387", font=mono9)
-        self.warn_label.pack()
         tk.Label(frame, text="Enter/→ Save   ← Discard   Esc Stop",
-                 bg="#1e1e2e", fg="#585b70", font=mono9).pack(pady=(2, 4))
+                 bg="#1e1e2e", fg="#585b70", font=mono9).pack(pady=(6, 4))
 
-        # episode log
-        log_outer = tk.Frame(frame, bg="#1e1e2e")
-        log_outer.pack(padx=12, pady=(4, 12), fill="x")
-        self.stats_label = tk.Label(log_outer, text="0 saved   0 discarded",
+        # episode log (normal mode)
+        self.log_outer = tk.Frame(frame, bg="#1e1e2e")
+        self.log_outer.pack(padx=12, pady=(4, 12), fill="x")
+        self.stats_label = tk.Label(self.log_outer, text="0 saved   0 discarded",
                                     bg="#1e1e2e", fg="#a6e3a1", font=mono10, anchor="w")
         self.stats_label.pack(fill="x")
-        scrollbar = tk.Scrollbar(log_outer)
+        scrollbar = tk.Scrollbar(self.log_outer)
         scrollbar.pack(side="right", fill="y")
-        self.log_text = tk.Text(log_outer, height=6, width=38, bg="#181825", fg="#cdd6f4",
-                                font=mono10, state="disabled", relief="flat",
+        self.log_text = tk.Text(self.log_outer, height=5, width=38, bg="#181825",
+                                fg="#cdd6f4", font=mono10, state="disabled", relief="flat",
                                 yscrollcommand=scrollbar.set)
         self.log_text.pack(side="left", fill="x")
         self.log_text.tag_configure("saved",     foreground="#a6e3a1")
         self.log_text.tag_configure("discarded", foreground="#f38ba8")
         scrollbar.config(command=self.log_text.yview)
+
+        # trajectory browser (pause mode, hidden by default)
+        self.traj_frame = tk.Frame(frame, bg="#1e1e2e")
+        tk.Label(self.traj_frame, text="Saved Trajectories", bg="#1e1e2e",
+                 fg="#89b4fa", font=bold13, anchor="w").pack(fill="x")
+        traj_scroll = tk.Scrollbar(self.traj_frame)
+        traj_scroll.pack(side="right", fill="y")
+        self.traj_listbox = tk.Listbox(self.traj_frame, height=6, bg="#181825",
+                                       fg="#a6e3a1", font=mono10, relief="flat",
+                                       selectbackground="#313244", selectforeground="#cdd6f4",
+                                       yscrollcommand=traj_scroll.set)
+        self.traj_listbox.pack(side="left", fill="x", expand=True)
+        self.traj_listbox.bind("<<ListboxSelect>>", self._on_traj_select)
+        traj_scroll.config(command=self.traj_listbox.yview)
+        self._traj_indices: list[int] = []
 
         return frame
 
@@ -387,7 +443,6 @@ class TeleopControlApp:
 
         self.init_frame = self._build_init_screen(root)
         self.main_frame = self._build_main_screen(root)
-
         self.init_frame.pack(fill="both", expand=True)
 
         root.after(500, self._tick_init_timer)
