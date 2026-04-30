@@ -11,6 +11,12 @@ if $LOG; then
 fi
 
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
+# wait for killed processes to release camera devices (up to 3s)
+for _i in 1 2 3; do
+    pgrep -f "lerobot-record|lerobot-teleoperate" > /dev/null 2>&1 || break
+    sleep 1
+done
+fuser -k /dev/video0 /dev/video2 2>/dev/null || true
 if pgrep -f "realsense-viewer" >/dev/null; then
     echo "Close realsense-viewer before recording; it holds the RealSense device."
     exit 1
