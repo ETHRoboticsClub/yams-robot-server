@@ -122,8 +122,13 @@ class TeleopControlApp:
                   relief="flat", padx=8, pady=10,
                   command=lambda: self._inject(Key.esc)).grid(row=0, column=2, padx=6)
 
-        tk.Label(root, text="→ Save   ← Discard   Esc Stop",
+        tk.Label(root, text="Enter/→ Save   ← Discard   Esc Stop",
                  bg="#1e1e2e", fg="#585b70", font=mono9).pack(pady=(8, 4))
+
+        root.bind("<Return>", lambda e: self._inject(Key.right, saved=True))
+        root.bind("<Right>",  lambda e: self._inject(Key.right, saved=True))
+        root.bind("<Left>",   lambda e: self._inject(Key.left,  saved=False))
+        root.bind("<Escape>", lambda e: self._inject(Key.esc))
 
         # Episode log
         log_outer = tk.Frame(root, bg="#1e1e2e")
