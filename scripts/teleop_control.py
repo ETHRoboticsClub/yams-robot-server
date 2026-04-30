@@ -21,11 +21,6 @@ try:
 except ImportError:
     _PIL_AVAILABLE = False
 
-try:
-    import cv2 as _cv2
-    _CV2_AVAILABLE = True
-except ImportError:
-    _CV2_AVAILABLE = False
 
 _keyboard = Controller()
 
@@ -285,7 +280,11 @@ class TeleopControlApp:
         return self._episode_offset + saved_before
 
     def _open_video_caps(self, ui_ep_idx: int) -> list:
-        if not _CV2_AVAILABLE or self._dataset_root is None:
+        if self._dataset_root is None:
+            return []
+        try:
+            import cv2
+        except ImportError:
             return []
         lerobot_idx = self._lerobot_ep_index(ui_ep_idx)
         chunk = lerobot_idx // 1000
@@ -295,7 +294,7 @@ class TeleopControlApp:
                     / f"chunk-{chunk:03d}"
                     / f"observation.images.{cam_key}"
                     / f"episode_{lerobot_idx:06d}.mp4")
-            caps.append(_cv2.VideoCapture(str(path)) if path.exists() else None)
+            caps.append(cv2.VideoCapture(str(path)) if path.exists() else None)
         return caps
 
     def _close_caps(self) -> None:
@@ -404,11 +403,12 @@ class TeleopControlApp:
                     continue
                 ret, bgr = cap.read()
                 if not ret:
-                    cap.set(_cv2.CAP_PROP_POS_FRAMES, 0)  # loop
+                    cap.set(0, 0)  # CAP_PROP_POS_FRAMES = 0, loop
                     ret, bgr = cap.read()
                 if ret:
                     any_frame = True
-                    img = Image.fromarray(_cv2.cvtColor(bgr, _cv2.COLOR_BGR2RGB))
+                    import cv2
+                    img = Image.fromarray(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
                     img = img.resize((_PREVIEW_W, _PREVIEW_H), Image.BILINEAR)
                     draw = ImageDraw.Draw(img)
                     draw.rectangle([2, _PREVIEW_H - 20, 90, _PREVIEW_H - 2], fill=(0, 0, 0))
