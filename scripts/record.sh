@@ -17,9 +17,9 @@ if pgrep -f "realsense-viewer" >/dev/null; then
 fi
 
 YAML=configs/arms.yaml
-REPO=ETHRC/yams-carton-box-closing-sat-michael-mat-varing-fan-position-25-04-2025
+REPO=ETHRC/yams-carton-box-closing-noe-exploring-30-04-2026
 RESUME=${RESUME:-true}
-PUSH_TO_HUB=${PUSH_TO_HUB:-false}
+PUSH_TO_HUB=${PUSH_TO_HUB:-true}
 # RECORD_DEPTH=true → also capture topdown RealSense depth to a PNG-16
 # sidecar at <dataset_root>/depth/. Harmless to leave off; RGB is always
 # saved regardless.
