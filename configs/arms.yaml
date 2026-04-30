@@ -148,6 +148,7 @@ cameras:
       auto_exposure_target: 120
       auto_exposure_min: 20
       auto_exposure_max: 130
+      shm_key: cam_right_wrist
     left_wrist:
       type: opencv-cached
       index_or_path: /dev/video2
@@ -159,6 +160,7 @@ cameras:
       auto_exposure_target: 120
       auto_exposure_min: 20
       auto_exposure_max: 130
+      shm_key: cam_left_wrist
     topdown:
       type: intelrealsense-cached
       serial_number_or_name: "203522250539"

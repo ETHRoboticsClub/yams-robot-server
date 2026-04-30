@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from pathlib import Path
 
@@ -162,6 +163,18 @@ class OpenCVCameraCached(OpenCVCamera):
                     self.latest_frame = processed_frame
                     self.latest_timestamp = capture_time
                 self.new_frame_event.set()
+
+                if self.config.shm_key:
+                    try:
+                        ok, buf = cv2.imencode('.jpg', processed_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                        if ok:
+                            tmp = f"/dev/shm/.{self.config.shm_key}.tmp"
+                            dst = f"/dev/shm/{self.config.shm_key}.jpg"
+                            with open(tmp, 'wb') as f:
+                                f.write(buf.tobytes())
+                            os.replace(tmp, dst)
+                    except Exception:
+                        pass
 
                 if self.auto_exposure is not None:
                     try:

@@ -13,3 +13,4 @@ class OpenCVCameraCachedConfig(OpenCVCameraConfig):
     auto_exposure_max: int = 200
     auto_exposure_speed: float = 0.25
     auto_exposure_period_s: float = 0.5
+    shm_key: str | None = None
