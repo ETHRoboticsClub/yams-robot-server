@@ -91,6 +91,7 @@ class TeleopControlApp:
         self.frame_buffers:  list[deque]       = [deque(maxlen=_REPLAY_BUFFER) for _ in _SHM_CAMERAS]
         self.replay_frames:  list[list] | None = None
         self.replay_idx:     int               = 0
+        self._replay_ep_idx: int | None        = None
         self._paused:        bool              = False
         self._last_action:   float             = 0.0   # debounce injected keys
         self._init_start:    float             = time.time()
@@ -259,6 +260,7 @@ class TeleopControlApp:
         for ep_idx, ep in saved:
             dur = _fmt(ep["duration"])
             def _play(idx: int = ep_idx) -> None:
+                self._replay_ep_idx = idx
                 self.replay_frames = self.episodes[idx]["frames"]
                 self.replay_idx = 0
             tk.Button(
@@ -302,31 +304,11 @@ class TeleopControlApp:
             self.root.after(_REFRESH_MS, self._update_frames)
             return
 
-        if self.replay_frames is not None:
-            max_len = max((len(f) for f in self.replay_frames), default=0)
-            if max_len == 0:
-                self.replay_frames = None
-                self.replay_idx = 0
-            else:
-                if self.replay_idx >= max_len:
-                    if self._paused:
-                        self.replay_idx = 0  # loop while paused
-                    else:
-                        self.replay_frames = None
-                        self.replay_idx = 0
-                if self.replay_frames is not None:
-                    for i, frames in enumerate(self.replay_frames):
-                        if not frames:
-                            continue
-                        photo = ImageTk.PhotoImage(frames[self.replay_idx % len(frames)])
-                        self.cam_labels[i].configure(image=photo)
-                        self.cam_images[i] = photo
-                    self.replay_idx += 1
-                    self.root.after(_REPLAY_STEP_MS, self._update_frames)
-                    return
-
         now  = time.time()
         font = _get_fps_font()
+
+        # Always read live frames into buffers so future saves are fresh
+        live: list[Image.Image | None] = [None] * len(_SHM_CAMERAS)
         for i, (_, path) in enumerate(_SHM_CAMERAS):
             p = Path(path)
             if not p.exists():
@@ -343,11 +325,46 @@ class TeleopControlApp:
                 draw.rectangle([2, 2, 66, 18], fill=(0, 0, 0))
                 draw.text((4, 3), f"{fps:.0f} fps", fill=color, font=font)
                 self.frame_buffers[i].append(img.copy())
+                live[i] = img
+            except Exception:
+                pass
+
+        # Replay mode
+        if self.replay_frames is not None:
+            max_len = max((len(f) for f in self.replay_frames), default=0)
+            if max_len == 0:
+                self.replay_frames = None
+                self.replay_idx = 0
+            else:
+                if self.replay_idx >= max_len:
+                    if self._paused:
+                        self.replay_idx = 0
+                    else:
+                        self.replay_frames = None
+                        self.replay_idx = 0
+
+            if self.replay_frames is not None:
+                ep_label = f"EP #{(self._replay_ep_idx or 0) + 1} ▶"
+                for i, frames in enumerate(self.replay_frames):
+                    if not frames:
+                        continue
+                    frame = frames[self.replay_idx % len(frames)].copy()
+                    draw = ImageDraw.Draw(frame)
+                    draw.rectangle([2, _PREVIEW_H - 20, 90, _PREVIEW_H - 2], fill=(0, 0, 0))
+                    draw.text((4, _PREVIEW_H - 18), ep_label, fill=(255, 200, 50), font=font)
+                    photo = ImageTk.PhotoImage(frame)
+                    self.cam_labels[i].configure(image=photo)
+                    self.cam_images[i] = photo
+                self.replay_idx += 1
+                self.root.after(_REPLAY_STEP_MS, self._update_frames)
+                return
+
+        # Live display
+        for i, img in enumerate(live):
+            if img is not None:
                 photo = ImageTk.PhotoImage(img)
                 self.cam_labels[i].configure(image=photo, width=_PREVIEW_W, height=_PREVIEW_H)
                 self.cam_images[i] = photo
-            except Exception:
-                pass
 
         self.root.after(_REFRESH_MS, self._update_frames)
 
