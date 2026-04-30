@@ -1,11 +1,13 @@
 import json
 import logging
+import os
 import re
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 import pyrealsense2 as rs
 from lerobot.cameras.realsense.camera_realsense import RealSenseCamera
@@ -124,6 +126,20 @@ class RealSenseCameraCached(RealSenseCamera):
                 self._last_depth_snapshot = depth_copy
         return color
 
+    def _write_shm(self, frame: NDArray[Any]) -> None:
+        if not self.config.shm_key:
+            return
+        try:
+            ok, buf = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            if ok:
+                tmp = f"/dev/shm/.{self.config.shm_key}.tmp"
+                dst = f"/dev/shm/{self.config.shm_key}.jpg"
+                with open(tmp, 'wb') as f:
+                    f.write(buf.tobytes())
+                os.replace(tmp, dst)
+        except Exception:
+            pass
+
     def pop_depth_snapshot(self) -> NDArray[Any] | None:
         """Return and clear the depth snapshot stashed by the last async_read()."""
         with self._depth_snapshot_lock:
@@ -143,6 +159,7 @@ class RealSenseCameraCached(RealSenseCamera):
             frame = self._snapshot_pair_locked()
             if frame is not None:
                 self.last_frame = frame
+                self._write_shm(frame)
                 return frame
 
         timeout_s = timeout_ms / 1000.0
@@ -152,6 +169,7 @@ class RealSenseCameraCached(RealSenseCamera):
                 self.ready = True
                 self.latest_frame_time = time.monotonic()
                 self.last_frame = frame
+                self._write_shm(frame)
                 return frame
 
         raise TimeoutError(

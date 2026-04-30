@@ -168,3 +168,4 @@ cameras:
       fps: 30
       width: 640
       height: 480
+      shm_key: cam_topdown
