@@ -102,6 +102,7 @@ fi
 PYTHONPATH=src uv run python scripts/check_setup.py || exit 1
 
 DATASET_ROOT="/home/ethrc/.cache/huggingface/lerobot/$REPO"
+echo "$DATASET_ROOT" > /dev/shm/yams_dataset_root.txt
 PYTHONPATH=src uv run python scripts/watch_pose.py --repo-root "$DATASET_ROOT" &
 WATCH_PID=$!
 trap 'kill $WATCH_PID 2>/dev/null || true' EXIT INT TERM

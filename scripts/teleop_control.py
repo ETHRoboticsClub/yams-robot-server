@@ -1,6 +1,7 @@
 """Recording control panel with live camera preview and episode log."""
 import functools
 import io
+import json
 import math
 import struct
 import subprocess
@@ -20,20 +21,28 @@ try:
 except ImportError:
     _PIL_AVAILABLE = False
 
+try:
+    import cv2 as _cv2
+    _CV2_AVAILABLE = True
+except ImportError:
+    _CV2_AVAILABLE = False
+
 _keyboard = Controller()
 
+# (display label, shm path, dataset camera key)
 _SHM_CAMERAS = [
-    ("Left Wrist",  "/dev/shm/cam_right_wrist.jpg"),
-    ("Topdown",     "/dev/shm/cam_topdown.jpg"),
-    ("Right Wrist", "/dev/shm/cam_left_wrist.jpg"),
+    ("Left Wrist",  "/dev/shm/cam_right_wrist.jpg", "right_wrist"),
+    ("Topdown",     "/dev/shm/cam_topdown.jpg",      "topdown"),
+    ("Right Wrist", "/dev/shm/cam_left_wrist.jpg",   "left_wrist"),
 ]
-_PREVIEW_W      = 280
-_PREVIEW_H      = 210
-_REFRESH_MS     = 100
-_REPLAY_BUFFER  = 30
-_REPLAY_STEP_MS = 80
-_CAM_FRESH_S    = 2.0
-_SPINNER        = ["|", "/", "—", "\\"]
+_PREVIEW_W        = 280
+_PREVIEW_H        = 210
+_REFRESH_MS       = 100
+_REPLAY_BUFFER    = 30
+_REPLAY_STEP_MS   = 80
+_CAM_FRESH_S      = 2.0
+_SPINNER          = ["|", "/", "—", "\\"]
+_DATASET_ROOT_SHM = "/dev/shm/yams_dataset_root.txt"
 
 
 def _fmt(seconds: float) -> str:
@@ -90,11 +99,14 @@ class TeleopControlApp:
         self.cam_images:     list              = []
         self.frame_times:    list[deque]       = [deque(maxlen=10) for _ in _SHM_CAMERAS]
         self.frame_buffers:  list[deque]       = [deque(maxlen=_REPLAY_BUFFER) for _ in _SHM_CAMERAS]
-        self.replay_frames:  list[list] | None = None
+        self.replay_frames:  list[list] | None  = None
         self.replay_idx:     int               = 0
         self._replay_ep_idx: int | None        = None
+        self._replay_caps:   list | None       = None
+        self._dataset_root:  str | None        = None
+        self._episode_offset: int              = 0
         self._paused:        bool              = False
-        self._last_action:   float             = 0.0   # debounce injected keys
+        self._last_action:   float             = 0.0
         self._init_start:    float             = time.time()
         self._in_init:       bool              = True
         self._spinner_idx:   int               = 0
@@ -124,7 +136,7 @@ class TeleopControlApp:
                  font=bold14).pack(anchor="w", pady=(0, 10))
 
         self.cam_status_labels: list[tk.Label] = []
-        for name, _ in _SHM_CAMERAS:
+        for name, _, _k in _SHM_CAMERAS:
             row = tk.Frame(cam_box, bg="#313244")
             row.pack(fill="x", pady=3)
             tk.Label(row, text=f"  {name}", bg="#313244", fg="#cdd6f4",
@@ -151,7 +163,7 @@ class TeleopControlApp:
             return
         now = time.time()
         all_online = True
-        for i, (_, path) in enumerate(_SHM_CAMERAS):
+        for i, (_, path, _k) in enumerate(_SHM_CAMERAS):
             p = Path(path)
             try:
                 online = p.exists() and (now - p.stat().st_mtime) < _CAM_FRESH_S
@@ -181,6 +193,7 @@ class TeleopControlApp:
     def _show_main(self) -> None:
         self.init_frame.pack_forget()
         self.episode_start = time.time()
+        self._load_dataset_root()
         self.main_frame.pack(fill="both", expand=True)
         self.root.after(500, self._tick_timer)
         self.root.after(_REFRESH_MS, self._update_frames)
@@ -232,6 +245,7 @@ class TeleopControlApp:
 
     def _resume(self) -> None:
         self._paused = False
+        self._close_caps()
         self.replay_frames = None
         self.pause_btn.config(text="⏸  Pause", bg="#313244", command=self._pause)
         self.save_btn.config(state="normal")
@@ -249,12 +263,62 @@ class TeleopControlApp:
         self.episode_start = time.time()
         self._update_log()
 
+    # ── dataset helpers ───────────────────────────────────────────────────
+
+    def _load_dataset_root(self) -> None:
+        try:
+            root = Path(_DATASET_ROOT_SHM).read_text().strip()
+            if root:
+                self._dataset_root = root
+                info = Path(root) / "meta" / "info.json"
+                if info.exists():
+                    self._episode_offset = json.loads(info.read_text()).get("total_episodes", 0)
+        except Exception:
+            pass
+
+    def _lerobot_ep_index(self, ui_ep_idx: int) -> int:
+        """Map a UI episode index to the lerobot dataset episode number."""
+        saved_before = sum(
+            1 for i, ep in enumerate(self.episodes)
+            if ep["saved"] and i < ui_ep_idx
+        )
+        return self._episode_offset + saved_before
+
+    def _open_video_caps(self, ui_ep_idx: int) -> list:
+        if not _CV2_AVAILABLE or self._dataset_root is None:
+            return []
+        lerobot_idx = self._lerobot_ep_index(ui_ep_idx)
+        chunk = lerobot_idx // 1000
+        caps = []
+        for _, _, cam_key in _SHM_CAMERAS:
+            path = (Path(self._dataset_root) / "videos"
+                    / f"chunk-{chunk:03d}"
+                    / f"observation.images.{cam_key}"
+                    / f"episode_{lerobot_idx:06d}.mp4")
+            caps.append(_cv2.VideoCapture(str(path)) if path.exists() else None)
+        return caps
+
+    def _close_caps(self) -> None:
+        if self._replay_caps:
+            for cap in self._replay_caps:
+                if cap is not None:
+                    cap.release()
+            self._replay_caps = None
+
     # ── trajectory browser ────────────────────────────────────────────────
 
     def _play_trajectory(self, ep_idx: int) -> None:
+        self._close_caps()
         self._replay_ep_idx = ep_idx
-        self.replay_frames = self.episodes[ep_idx]["frames"]
-        self.replay_idx = 0
+        caps = self._open_video_caps(ep_idx)
+        if any(c is not None and c.isOpened() for c in caps):
+            self._replay_caps = caps
+            self.replay_frames = None
+        else:
+            # fall back to buffered frames
+            self._replay_caps = None
+            self.replay_frames = self.episodes[ep_idx]["frames"]
+            self.replay_idx = 0
 
     def _refresh_traj_list(self) -> None:
         for w in self.traj_inner.winfo_children():
@@ -309,7 +373,7 @@ class TeleopControlApp:
 
         # Always read live frames into buffers so future saves are fresh
         live: list[Image.Image | None] = [None] * len(_SHM_CAMERAS)
-        for i, (_, path) in enumerate(_SHM_CAMERAS):
+        for i, (_, path, _k) in enumerate(_SHM_CAMERAS):
             p = Path(path)
             if not p.exists():
                 continue
@@ -329,23 +393,46 @@ class TeleopControlApp:
             except Exception:
                 pass
 
-        # Replay mode
+        ep_num   = self._replay_ep_idx + 1 if self._replay_ep_idx is not None else "?"
+        ep_label = f"EP #{ep_num} ▶"
+
+        # Video-file replay (full trajectory via cv2)
+        if self._replay_caps is not None:
+            any_frame = False
+            for i, cap in enumerate(self._replay_caps):
+                if cap is None or not cap.isOpened():
+                    continue
+                ret, bgr = cap.read()
+                if not ret:
+                    cap.set(_cv2.CAP_PROP_POS_FRAMES, 0)  # loop
+                    ret, bgr = cap.read()
+                if ret:
+                    any_frame = True
+                    img = Image.fromarray(_cv2.cvtColor(bgr, _cv2.COLOR_BGR2RGB))
+                    img = img.resize((_PREVIEW_W, _PREVIEW_H), Image.BILINEAR)
+                    draw = ImageDraw.Draw(img)
+                    draw.rectangle([2, _PREVIEW_H - 20, 90, _PREVIEW_H - 2], fill=(0, 0, 0))
+                    draw.text((4, _PREVIEW_H - 18), ep_label, fill=(255, 200, 50), font=font)
+                    photo = ImageTk.PhotoImage(img)
+                    self.cam_labels[i].configure(image=photo)
+                    self.cam_images[i] = photo
+            if any_frame:
+                self.root.after(33, self._update_frames)
+                return
+            self._close_caps()  # nothing opened, fall through to live
+
+        # Buffered-frame replay (fallback)
         if self.replay_frames is not None:
             max_len = max((len(f) for f in self.replay_frames), default=0)
             if max_len == 0:
                 self.replay_frames = None
-                self.replay_idx = 0
             else:
                 if self.replay_idx >= max_len:
                     if self._paused:
                         self.replay_idx = 0
                     else:
                         self.replay_frames = None
-                        self.replay_idx = 0
-
             if self.replay_frames is not None:
-                ep_num   = self._replay_ep_idx + 1 if self._replay_ep_idx is not None else "?"
-                ep_label = f"EP #{ep_num} ▶"
                 for i, frames in enumerate(self.replay_frames):
                     if not frames:
                         continue
@@ -383,7 +470,7 @@ class TeleopControlApp:
         # cameras
         cam_frame = tk.Frame(frame, bg="#1e1e2e")
         cam_frame.pack(padx=12, pady=(12, 4))
-        for i, (name, _) in enumerate(_SHM_CAMERAS):
+        for i, (name, _, _k) in enumerate(_SHM_CAMERAS):
             col = tk.Frame(cam_frame, bg="#1e1e2e")
             col.grid(row=0, column=i, padx=6)
             tk.Label(col, text=name, bg="#1e1e2e", fg="#89b4fa", font=mono9).pack()
