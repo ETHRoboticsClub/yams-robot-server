@@ -30,8 +30,10 @@ _PREVIEW_W      = 280
 _PREVIEW_H      = 210
 _REFRESH_MS     = 100
 _MIN_EPISODE_S  = 5
-_REPLAY_BUFFER  = 30   # frames buffered for replay (~3 s at 10 fps)
-_REPLAY_STEP_MS = 80   # playback interval
+_REPLAY_BUFFER  = 30
+_REPLAY_STEP_MS = 80
+_CAM_FRESH_S    = 2.0   # shm file must be this recent to count as online
+_SPINNER        = ["|", "/", "—", "\\"]
 
 
 def _fmt(seconds: float) -> str:
@@ -63,7 +65,7 @@ def _play_tone(freq: float, duration_ms: int) -> None:
 
 _fps_font: ImageFont.ImageFont | None = None
 
-def _get_fps_font():
+def _get_fps_font() -> ImageFont.ImageFont:
     global _fps_font
     if _fps_font is None:
         for path in [
@@ -82,24 +84,108 @@ def _get_fps_font():
 
 class TeleopControlApp:
     def __init__(self) -> None:
-        self.episodes:      list[dict]       = []
-        self.episode_start: float            = time.time()
-        self.cam_labels:    list[tk.Label]   = []
-        self.cam_images:    list             = []
-        self.frame_times:   list[deque]      = [deque(maxlen=10) for _ in _SHM_CAMERAS]
-        self.frame_buffers: list[deque]      = [deque(maxlen=_REPLAY_BUFFER) for _ in _SHM_CAMERAS]
-        self.replay_frames: list[list] | None = None
-        self.replay_idx:    int              = 0
-        self.pending_save:  bool             = False
-        # widgets assigned in run()
-        self.root:         tk.Tk
-        self.save_btn:     tk.Button
-        self.timer_label:  tk.Label
-        self.warn_label:   tk.Label
-        self.stats_label:  tk.Label
-        self.log_text:     tk.Text
+        self.episodes:       list[dict]        = []
+        self.episode_start:  float             = time.time()
+        self.cam_labels:     list[tk.Label]    = []
+        self.cam_images:     list              = []
+        self.frame_times:    list[deque]       = [deque(maxlen=10) for _ in _SHM_CAMERAS]
+        self.frame_buffers:  list[deque]       = [deque(maxlen=_REPLAY_BUFFER) for _ in _SHM_CAMERAS]
+        self.replay_frames:  list[list] | None = None
+        self.replay_idx:     int               = 0
+        self.pending_save:   bool              = False
+        self._init_start:    float             = time.time()
+        self._in_init:       bool              = True
+        self._spinner_idx:   int               = 0
 
-    # ── actions ───────────────────────────────────────────────────────────
+    # ── init screen ───────────────────────────────────────────────────────
+
+    def _build_init_screen(self, root: tk.Tk) -> tk.Frame:
+        bold20 = tkfont.Font(family="Monospace", size=20, weight="bold")
+        bold14 = tkfont.Font(family="Monospace", size=14, weight="bold")
+        bold28 = tkfont.Font(family="Monospace", size=28, weight="bold")
+        mono11 = tkfont.Font(family="Monospace", size=11)
+        mono10 = tkfont.Font(family="Monospace", size=10)
+
+        frame = tk.Frame(root, bg="#1e1e2e")
+
+        tk.Label(frame, text="YAMS Robot", bg="#1e1e2e", fg="#cdd6f4",
+                 font=bold20).pack(pady=(40, 4))
+        self.init_status_label = tk.Label(frame, text="Initializing...",
+                                          bg="#1e1e2e", fg="#585b70", font=mono11)
+        self.init_status_label.pack()
+
+        self.init_timer_label = tk.Label(frame, text="00:00", bg="#1e1e2e",
+                                         fg="#89b4fa", font=bold28)
+        self.init_timer_label.pack(pady=(8, 24))
+
+        # camera status rows
+        cam_box = tk.Frame(frame, bg="#313244", padx=20, pady=16)
+        cam_box.pack(padx=40, pady=(0, 30))
+        tk.Label(cam_box, text="Camera Status", bg="#313244", fg="#89b4fa",
+                 font=bold14).pack(anchor="w", pady=(0, 10))
+
+        self.cam_status_labels: list[tk.Label] = []
+        for name, _ in _SHM_CAMERAS:
+            row = tk.Frame(cam_box, bg="#313244")
+            row.pack(fill="x", pady=3)
+            tk.Label(row, text=f"  {name}", bg="#313244", fg="#cdd6f4",
+                     font=mono10, width=14, anchor="w").pack(side="left")
+            lbl = tk.Label(row, text="○  Waiting", bg="#313244",
+                           fg="#585b70", font=mono10)
+            lbl.pack(side="right")
+            self.cam_status_labels.append(lbl)
+
+        return frame
+
+    def _tick_init_timer(self) -> None:
+        if not self._in_init:
+            return
+        elapsed = time.time() - self._init_start
+        self.init_timer_label.config(text=_fmt(elapsed))
+        self._spinner_idx = (self._spinner_idx + 1) % len(_SPINNER)
+        spin = _SPINNER[self._spinner_idx]
+        self.init_status_label.config(text=f"{spin}  Waiting for cameras...")
+        self.root.after(500, self._tick_init_timer)
+
+    def _check_init(self) -> None:
+        if not self._in_init:
+            return
+        now = time.time()
+        all_online = True
+        for i, (_, path) in enumerate(_SHM_CAMERAS):
+            p = Path(path)
+            try:
+                online = p.exists() and (now - p.stat().st_mtime) < _CAM_FRESH_S
+            except Exception:
+                online = False
+            if online:
+                self.cam_status_labels[i].config(text="●  Online", fg="#a6e3a1")
+            else:
+                self.cam_status_labels[i].config(text="○  Waiting", fg="#585b70")
+                all_online = False
+
+        if all_online:
+            self._transition_to_main()
+        else:
+            self.root.after(500, self._check_init)
+
+    def _transition_to_main(self) -> None:
+        self._in_init = False
+        self.init_status_label.config(text="✓  All systems ready!", fg="#a6e3a1")
+        self.init_timer_label.config(fg="#a6e3a1")
+        _play_tone(523, 80)
+        self.root.after(80,  lambda: _play_tone(659, 80))
+        self.root.after(160, lambda: _play_tone(784, 120))
+        self.root.after(900, self._show_main)
+
+    def _show_main(self) -> None:
+        self.init_frame.pack_forget()
+        self.episode_start = time.time()
+        self.main_frame.pack(fill="both", expand=True)
+        self.root.after(500, self._tick_timer)
+        self.root.after(_REFRESH_MS, self._update_frames)
+
+    # ── main screen actions ───────────────────────────────────────────────
 
     def _save(self) -> None:
         duration = time.time() - self.episode_start
@@ -143,8 +229,6 @@ class TeleopControlApp:
         self.episode_start = time.time()
         self._update_log()
 
-    # ── log ───────────────────────────────────────────────────────────────
-
     def _update_log(self) -> None:
         n_saved     = sum(1 for e in self.episodes if e["saved"])
         n_discarded = len(self.episodes) - n_saved
@@ -160,8 +244,6 @@ class TeleopControlApp:
         self.log_text.see("end")
         self.log_text.config(state="disabled")
 
-    # ── timer ─────────────────────────────────────────────────────────────
-
     def _tick_timer(self) -> None:
         elapsed = time.time() - self.episode_start
         self.timer_label.config(
@@ -170,14 +252,11 @@ class TeleopControlApp:
         )
         self.root.after(500, self._tick_timer)
 
-    # ── camera frames ─────────────────────────────────────────────────────
-
     def _update_frames(self) -> None:
         if not _PIL_AVAILABLE:
             self.root.after(_REFRESH_MS, self._update_frames)
             return
 
-        # replay mode: loop through buffered frames once then return to live
         if self.replay_frames is not None:
             max_len = max((len(f) for f in self.replay_frames), default=0)
             if max_len == 0 or self.replay_idx >= max_len:
@@ -187,16 +266,14 @@ class TeleopControlApp:
                 for i, frames in enumerate(self.replay_frames):
                     if not frames:
                         continue
-                    frame = frames[self.replay_idx % len(frames)]
-                    photo = ImageTk.PhotoImage(frame)
+                    photo = ImageTk.PhotoImage(frames[self.replay_idx % len(frames)])
                     self.cam_labels[i].configure(image=photo)
                     self.cam_images[i] = photo
                 self.replay_idx += 1
                 self.root.after(_REPLAY_STEP_MS, self._update_frames)
                 return
 
-        # live feed
-        now = time.time()
+        now  = time.time()
         font = _get_fps_font()
         for i, (_, path) in enumerate(_SHM_CAMERAS):
             p = Path(path)
@@ -206,19 +283,14 @@ class TeleopControlApp:
                 img = Image.open(p)
                 img.load()
                 img = img.resize((_PREVIEW_W, _PREVIEW_H), Image.BILINEAR)
-
-                # fps
                 self.frame_times[i].append(now)
                 times = self.frame_times[i]
-                fps = (len(times) - 1) / (times[-1] - times[0]) if len(times) >= 2 else 0.0
-                fps_text = f"{fps:.0f} fps"
-                color    = (100, 220, 100) if fps > 5 else (220, 80, 80)
-                draw = ImageDraw.Draw(img)
+                fps   = (len(times) - 1) / (times[-1] - times[0]) if len(times) >= 2 else 0.0
+                color = (100, 220, 100) if fps > 5 else (220, 80, 80)
+                draw  = ImageDraw.Draw(img)
                 draw.rectangle([2, 2, 66, 18], fill=(0, 0, 0))
-                draw.text((4, 3), fps_text, fill=color, font=font)
-
+                draw.text((4, 3), f"{fps:.0f} fps", fill=color, font=font)
                 self.frame_buffers[i].append(img.copy())
-
                 photo = ImageTk.PhotoImage(img)
                 self.cam_labels[i].configure(image=photo, width=_PREVIEW_W, height=_PREVIEW_H)
                 self.cam_images[i] = photo
@@ -227,24 +299,19 @@ class TeleopControlApp:
 
         self.root.after(_REFRESH_MS, self._update_frames)
 
-    # ── build ui ──────────────────────────────────────────────────────────
+    # ── build main screen ─────────────────────────────────────────────────
 
-    def run(self) -> None:
-        self.root = tk.Tk()
-        root = self.root
-        root.title("Teleop Control")
-        root.configure(bg="#1e1e2e")
-        root.resizable(False, False)
-        root.attributes("-topmost", True)
-
+    def _build_main_screen(self, root: tk.Tk) -> tk.Frame:
         bold14 = tkfont.Font(family="Monospace", size=14, weight="bold")
         bold13 = tkfont.Font(family="Monospace", size=13, weight="bold")
         bold22 = tkfont.Font(family="Monospace", size=22, weight="bold")
         mono10 = tkfont.Font(family="Monospace", size=10)
         mono9  = tkfont.Font(family="Monospace", size=9)
 
+        frame = tk.Frame(root, bg="#1e1e2e")
+
         # cameras
-        cam_frame = tk.Frame(root, bg="#1e1e2e")
+        cam_frame = tk.Frame(frame, bg="#1e1e2e")
         cam_frame.pack(padx=12, pady=(12, 4))
         for i, (name, _) in enumerate(_SHM_CAMERAS):
             col = tk.Frame(cam_frame, bg="#1e1e2e")
@@ -255,8 +322,8 @@ class TeleopControlApp:
             self.cam_labels.append(lbl)
             self.cam_images.append(None)
 
-        # title + live timer
-        header = tk.Frame(root, bg="#1e1e2e")
+        # title + timer
+        header = tk.Frame(frame, bg="#1e1e2e")
         header.pack(pady=(10, 4))
         tk.Label(header, text="Recording Controls", bg="#1e1e2e", fg="#89b4fa",
                  font=bold14).pack(side="left", padx=(0, 20))
@@ -265,7 +332,7 @@ class TeleopControlApp:
         self.timer_label.pack(side="left")
 
         # buttons
-        btn_frame = tk.Frame(root, bg="#1e1e2e")
+        btn_frame = tk.Frame(frame, bg="#1e1e2e")
         btn_frame.pack(padx=20, pady=4)
         self.save_btn = tk.Button(btn_frame, text="✓  Save", width=11, font=bold13,
                                   bg="#a6e3a1", fg="#1e1e2e", activebackground="#a6e3a1",
@@ -280,20 +347,13 @@ class TeleopControlApp:
                   relief="flat", padx=8, pady=10,
                   command=self._stop).grid(row=0, column=2, padx=6)
 
-        # warning + hint
-        self.warn_label = tk.Label(root, text="", bg="#1e1e2e", fg="#fab387", font=mono9)
+        self.warn_label = tk.Label(frame, text="", bg="#1e1e2e", fg="#fab387", font=mono9)
         self.warn_label.pack()
-        tk.Label(root, text="Enter/→ Save   ← Discard   Esc Stop",
+        tk.Label(frame, text="Enter/→ Save   ← Discard   Esc Stop",
                  bg="#1e1e2e", fg="#585b70", font=mono9).pack(pady=(2, 4))
 
-        # keyboard bindings
-        root.bind("<Return>", lambda e: self._save())
-        root.bind("<Right>",  lambda e: self._save())
-        root.bind("<Left>",   lambda e: self._discard())
-        root.bind("<Escape>", lambda e: self._stop())
-
         # episode log
-        log_outer = tk.Frame(root, bg="#1e1e2e")
+        log_outer = tk.Frame(frame, bg="#1e1e2e")
         log_outer.pack(padx=12, pady=(4, 12), fill="x")
         self.stats_label = tk.Label(log_outer, text="0 saved   0 discarded",
                                     bg="#1e1e2e", fg="#a6e3a1", font=mono10, anchor="w")
@@ -308,8 +368,30 @@ class TeleopControlApp:
         self.log_text.tag_configure("discarded", foreground="#f38ba8")
         scrollbar.config(command=self.log_text.yview)
 
-        root.after(_REFRESH_MS, self._update_frames)
-        root.after(500, self._tick_timer)
+        return frame
+
+    # ── entry point ───────────────────────────────────────────────────────
+
+    def run(self) -> None:
+        self.root = tk.Tk()
+        root = self.root
+        root.title("Teleop Control")
+        root.configure(bg="#1e1e2e")
+        root.resizable(False, False)
+        root.attributes("-topmost", True)
+
+        root.bind("<Return>", lambda e: self._save())
+        root.bind("<Right>",  lambda e: self._save())
+        root.bind("<Left>",   lambda e: self._discard())
+        root.bind("<Escape>", lambda e: self._stop())
+
+        self.init_frame = self._build_init_screen(root)
+        self.main_frame = self._build_main_screen(root)
+
+        self.init_frame.pack(fill="both", expand=True)
+
+        root.after(500, self._tick_init_timer)
+        root.after(500, self._check_init)
         root.mainloop()
 
 
