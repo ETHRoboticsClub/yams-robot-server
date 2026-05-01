@@ -19,6 +19,16 @@ cd /home/ethrc/Desktop/yams-robot-server
 #command to record episodes 
 NUM_EPISODES=50 EPISODE_TIME_S=50 PUSH_TO_HUB=true bash scripts/record.sh --log
 
+### Hotkeys during recording
+
+lerobot's record loop listens for these keys — no extra setup needed.
+
+| Key | Action |
+|-----|--------|
+| `→` Right arrow | End the current episode early and save it (advance to next) |
+| `←` Left arrow | Discard the current episode and re-record it |
+| `Esc` | Stop the entire recording session and finalize the dataset |
+
 ---
 
 ## First-time setup (new devs, read this before cloning repo on personal machine)apte
