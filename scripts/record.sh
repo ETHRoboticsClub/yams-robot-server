@@ -20,7 +20,7 @@ YAML=configs/arms.yaml
 REPO=ETHRC/closed-carton-box-to-migros-box-go2
 AUTO_NAME=${AUTO_NAME:-false}
 DATASET_TAGS=${DATASET_TAGS:-yams,bimanual}
-RESUME=${RESUME:-true}
+RESUME=${RESUME:-false}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
 # RECORD_DEPTH=true → also capture topdown RealSense depth to a PNG-16
 # sidecar at <dataset_root>/depth/. Harmless to leave off; RGB is always
@@ -38,8 +38,7 @@ DEPTH_DOWNSAMPLE=${DEPTH_DOWNSAMPLE:-2}
 # tabletop topdown view, but default is 0 so existing behavior is preserved.
 DEPTH_CLIP_MM=${DEPTH_CLIP_MM:-1500}
 export DEPTH_DOWNSAMPLE DEPTH_CLIP_MM
-MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
-DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
+DATASET_FPS=${DATASET_FPS:-15}
 NUM_EPISODES=${NUM_EPISODES:-100}
 EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-10}
@@ -118,7 +117,7 @@ PYTHONPATH=src "${RECORD_BIN[@]}" \
     --teleop.right_arm_port="$RIGHT_PORT" \
     --robot.left_arm_can_port="$LEFT_CAN" \
     --robot.right_arm_can_port="$RIGHT_CAN" \
-    --display_data="${DISPLAY_DATA:-false}" \
+    --display_data="${DISPLAY_DATA:-true}" \
     --play_sounds=true \
     --dataset.fps="$DATASET_FPS" \
     --dataset.num_episodes="$NUM_EPISODES" \
