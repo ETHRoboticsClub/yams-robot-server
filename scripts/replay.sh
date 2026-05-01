@@ -1,14 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
 
+YAML=${YAML:-configs/arms.yaml}
+REPO=${REPO:?REPO env var required (e.g. ETHRC/my-dataset)}
+EPISODE=${EPISODE:-0}
 
-YAML=configs/arms.yaml
-REPO=ETHRC/fake4
-LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
-RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
-cameras=$(yq -c '.cameras.configs' "$YAML")
+LEFT_CAN=$(yq '.follower.left_arm.can_port' "$YAML")
+RIGHT_CAN=$(yq '.follower.right_arm.can_port' "$YAML")
 
-lerobot-dataset-viz --repo-id "$REPO" --episode-index 0 --mode local
+bash third_party/i2rt/scripts/reset_all_can.sh
+echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
+echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 
-
-
-    # --dataset.streaming_encoding=true \
-    # --dataset.encoder_threads=2
+set -x
+PYTHONPATH=src uv run lerobot-replay \
+    --robot.type=bi_yams_follower \
+    --robot.left_arm_can_port="$LEFT_CAN" \
+    --robot.right_arm_can_port="$RIGHT_CAN" \
+    --dataset.repo_id="$REPO" \
+    --dataset.episode="$EPISODE"
+set +x

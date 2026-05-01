@@ -19,6 +19,16 @@ cd /home/ethrc/Desktop/yams-robot-server
 #command to record episodes 
 NUM_EPISODES=50 EPISODE_TIME_S=50 PUSH_TO_HUB=true bash scripts/record.sh --log
 
+Replay a recorded episode back to the real robot (replays actions from the dataset):
+```bash
+REPO=ETHRC/my-dataset EPISODE=0 bash scripts/replay.sh
+```
+
+Visualise a dataset episode without touching the robot:
+```bash
+REPO=ETHRC/my-dataset EPISODE=0 bash scripts/dataset-viz.sh
+```
+
 ---
 
 ## First-time setup (new devs, read this before cloning repo on personal machine)apte
