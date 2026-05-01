@@ -26,8 +26,9 @@ bash third_party/i2rt/scripts/reset_all_can.sh
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 
-export PYNPUT_BACKEND_KEYBOARD=uinput
+export PYNPUT_BACKEND_KEYBOARD=xorg
 DATASET_ROOT="$HOME/.cache/huggingface/lerobot/$REPO"
+if [ -d "$DATASET_ROOT/meta" ]; then RESUME=true; else RESUME=false; fi
 
 while true; do
     echo ""
@@ -69,7 +70,7 @@ while true; do
         --dataset.root="$DATASET_ROOT" \
         --dataset.push_to_hub="$PUSH_TO_HUB" \
         --dataset.tags="[$DATASET_TAGS]" \
-        --resume=true \
+        --resume="$RESUME" \
         --dataset.vcodec="$VCODEC" \
         --robot.cameras="$cameras" \
         --dataset.streaming_encoding=true || true
