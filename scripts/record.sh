@@ -18,6 +18,8 @@ fi
 
 YAML=configs/arms.yaml
 REPO=ETHRC/yams-carton-box-closing-sat-michael-mat-varing-fan-position-25-04-2025
+AUTO_NAME=${AUTO_NAME:-false}
+DATASET_TAGS=${DATASET_TAGS:-yams,bimanual}
 RESUME=${RESUME:-true}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
 # RECORD_DEPTH=true → also capture topdown RealSense depth to a PNG-16
@@ -64,6 +66,9 @@ if [ "$RECORD_DEPTH" = "true" ]; then
             end
         )
     ')
+fi
+if [ "$AUTO_NAME" = "true" ] && [ "$REPO" = "ETHRC/yams-carton-box-closing-sat-michael-mat-varing-fan-position-25-04-2025" ]; then
+    REPO="ETHRC/yams-$(echo "$TASK" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')-$(date +%Y%m%d)"
 fi
 echo "Dataset repo: $REPO"
 echo "Dataset root: /home/ethrc/.cache/huggingface/lerobot/$REPO"
@@ -114,7 +119,7 @@ PYTHONPATH=src "${RECORD_BIN[@]}" \
     --robot.left_arm_can_port="$LEFT_CAN" \
     --robot.right_arm_can_port="$RIGHT_CAN" \
     --display_data=false \
-    --play_sounds=false \
+    --play_sounds=true \
     --dataset.fps="$DATASET_FPS" \
     --dataset.num_episodes="$NUM_EPISODES" \
     --dataset.episode_time_s="$EPISODE_TIME_S" \
@@ -123,6 +128,7 @@ PYTHONPATH=src "${RECORD_BIN[@]}" \
     --dataset.repo_id="$REPO" \
     --dataset.root="/home/ethrc/.cache/huggingface/lerobot/$REPO" \
     --dataset.push_to_hub="$PUSH_TO_HUB" \
+    --dataset.tags="[$DATASET_TAGS]" \
     --resume="$RESUME" \
     --dataset.vcodec="$VCODEC" \
     --robot.cameras="$cameras" \

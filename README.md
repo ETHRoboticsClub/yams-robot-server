@@ -29,6 +29,16 @@ Visualise a dataset episode without touching the robot:
 REPO=ETHRC/my-dataset EPISODE=0 bash scripts/dataset-viz.sh
 ```
 
+### Hotkeys during recording
+
+lerobot's record loop listens for these keys — no extra setup needed.
+
+| Key | Action |
+|-----|--------|
+| `→` Right arrow | End the current episode early and save it (advance to next) |
+| `←` Left arrow | Discard the current episode and re-record it |
+| `Esc` | Stop the entire recording session and finalize the dataset |
+
 ---
 
 ## First-time setup (new devs, read this before cloning repo on personal machine)apte
