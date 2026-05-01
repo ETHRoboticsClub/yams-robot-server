@@ -68,6 +68,10 @@ class OpenCVCameraCached(OpenCVCamera):
                 self.last_frame = frame
                 return frame
 
+        if self.last_frame is not None:
+            logger.warning(f"{self} frame timeout, returning last frame (reconnecting?)")
+            return self.last_frame
+
         raise TimeoutError(
             f"Timed out waiting for frame from camera {self} after {timeout_ms} ms. "
             f"Read thread alive: {self.thread.is_alive()}."

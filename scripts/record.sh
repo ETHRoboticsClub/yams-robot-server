@@ -17,7 +17,7 @@ if pgrep -f "realsense-viewer" >/dev/null; then
 fi
 
 YAML=configs/arms.yaml
-REPO=ETHRC/yams-carton-box-closing-sat-michael-mat-varing-fan-position-25-04-2025
+REPO=ETHRC/yams-closed-carton-box-to-migros-basket-go2
 RESUME=${RESUME:-true}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
 # RECORD_DEPTH=true → also capture topdown RealSense depth to a PNG-16
@@ -39,10 +39,10 @@ export DEPTH_DOWNSAMPLE DEPTH_CLIP_MM
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
 DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
 NUM_EPISODES=${NUM_EPISODES:-100}
-EPISODE_TIME_S=${EPISODE_TIME_S:-120}
+EPISODE_TIME_S=${EPISODE_TIME_S:-45}
 RESET_TIME_S=${RESET_TIME_S:-10}
 # TASK=${TASK:-Fold the towel.}
-TASK=${TASK:-Pick & Place and Closing a Box}
+TASK=${TASK:-Push the closed box off the table onto a Migros basket on a Go2}
 VCODEC=${VCODEC:-auto}
 LEFT_PORT=$(yq '.leader.left_arm.port' "$YAML")
 RIGHT_PORT=$(yq '.leader.right_arm.port' "$YAML")
@@ -66,7 +66,7 @@ if [ "$RECORD_DEPTH" = "true" ]; then
     ')
 fi
 echo "Dataset repo: $REPO"
-echo "Dataset root: /home/ethrc/.cache/huggingface/lerobot/$REPO"
+echo "Dataset root: data/$REPO"
 echo "Task: $TASK"
 echo "Push to Hub: $PUSH_TO_HUB"
 echo "Record depth: $RECORD_DEPTH"
@@ -84,18 +84,21 @@ bash third_party/i2rt/scripts/reset_all_can.sh
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB0/latency_timer
 echo 1 | sudo tee /sys/bus/usb-serial/devices/ttyUSB1/latency_timer
 
-# if [ -d "/home/ethrc/.cache/huggingface/lerobot/$REPO" ] && [ ! -f "/home/ethrc/.cache/huggingface/lerobot/$REPO/meta/info.json" ]; then
-#     mv "/home/ethrc/.cache/huggingface/lerobot/$REPO" "/home/ethrc/.cache/huggingface/lerobot/$REPO.stale.$(date +%s)"
+# if [ -d "data/$REPO" ] && [ ! -f "data/$REPO/meta/info.json" ]; then
+#     mv "data/$REPO" "data/$REPO.stale.$(date +%s)"
 # fi
-# rm -rf /home/ethrc/.cache/huggingface/lerobot/$REPO
+# rm -rf data/$REPO
 
-if [ "$RESUME" != "true" ] && [ -d "/home/ethrc/.cache/huggingface/lerobot/$REPO" ]; then
-    rm -rf "/home/ethrc/.cache/huggingface/lerobot/$REPO"
+if [ "$RESUME" = "true" ] && [ ! -f "data/$REPO/meta/tasks.parquet" ]; then
+    RESUME=false
+fi
+if [ "$RESUME" != "true" ] && [ -d "data/$REPO" ]; then
+    rm -rf "data/$REPO"
 fi
 
 PYTHONPATH=src uv run python scripts/check_setup.py || exit 1
 
-DATASET_ROOT="/home/ethrc/.cache/huggingface/lerobot/$REPO"
+DATASET_ROOT="data/$REPO"
 PYTHONPATH=src uv run python scripts/watch_pose.py --repo-root "$DATASET_ROOT" &
 WATCH_PID=$!
 trap 'kill $WATCH_PID 2>/dev/null || true' EXIT INT TERM
@@ -106,6 +109,24 @@ if [ "$RECORD_DEPTH" = "true" ]; then
 else
     RECORD_BIN=(uv run lerobot-record)
 fi
+highlight() {
+    while IFS= read -r line; do
+        # Drop known high-frequency noise
+        echo "$line" | grep -qE \
+            "Record loop is running slower|No policy or teleoperator provided|frame timeout, returning last frame" \
+            && continue
+        if echo "$line" | grep -qE "Recording episode|Reset the environment|Stop recording|Re-record episode"; then
+            echo ""
+            echo "================================================================"
+            echo "  >>> $line"
+            echo "================================================================"
+            echo ""
+        else
+            echo "$line"
+        fi
+    done
+}
+
 PYTHONPATH=src "${RECORD_BIN[@]}" \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
@@ -121,12 +142,12 @@ PYTHONPATH=src "${RECORD_BIN[@]}" \
     --dataset.reset_time_s="$RESET_TIME_S" \
     --dataset.single_task="$TASK" \
     --dataset.repo_id="$REPO" \
-    --dataset.root="/home/ethrc/.cache/huggingface/lerobot/$REPO" \
+    --dataset.root="data/$REPO" \
     --dataset.push_to_hub="$PUSH_TO_HUB" \
     --resume="$RESUME" \
     --dataset.vcodec="$VCODEC" \
     --robot.cameras="$cameras" \
-    --dataset.streaming_encoding=true
+    --dataset.streaming_encoding=true 2>&1 | highlight
     # --dataset.push_to_hub=true \
     # --dataset.encoder_queue_maxsize=1000
     # --dataset.encoder_threads=2

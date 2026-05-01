@@ -1,7 +1,10 @@
 import atexit
 import cProfile
+import logging
 import os
 import signal
+import threading
+import time
 from pathlib import Path
 
 import portal
@@ -9,11 +12,28 @@ from i2rt.robots.get_robot import get_yam_robot
 from i2rt.robots.robot import Robot
 from i2rt.robots.utils import GripperType
 
+logger = logging.getLogger(__name__)
+
+
+def _motor_watchdog(robot) -> None:
+    """Restart the DM control loop when a motor error kills it."""
+    while True:
+        time.sleep(1.0)
+        if not robot.motor_chain.running:
+            logger.warning("motor_chain stopped — restarting control loop")
+            try:
+                robot.motor_chain.start_thread()
+                logger.info("motor_chain restarted")
+            except Exception as e:
+                logger.error(f"motor_chain restart failed: {e}")
+
 
 def run_robot_server(config) -> None:
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     gripper_type = GripperType.from_string_name(config.gripper)
     robot = get_yam_robot(channel=config.can_port, gripper_type=gripper_type)
+
+    threading.Thread(target=_motor_watchdog, args=(robot,), daemon=True).start()
 
     server = YamsServer(robot, config.server_port)
     if os.getenv("YAMS_SERVER_PROFILE"):

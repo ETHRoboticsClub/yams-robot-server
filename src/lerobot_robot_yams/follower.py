@@ -119,7 +119,14 @@ class YamsFollower(Robot):
         start = time.perf_counter()
 
         obs_dict = {}
-        obs = self._client.get_observations().result()  # type: ignore
+        for _attempt in range(20):
+            try:
+                obs = self._client.get_observations().result()  # type: ignore
+                break
+            except Exception:
+                if _attempt == 19:
+                    raise
+                time.sleep(0.1)
         joint_pos = np.concatenate([obs["joint_pos"], obs.get("gripper_pos", np.array([]))])
         for i, key in enumerate(self.config.joint_names):
             obs_dict[f"{key}.pos"] = joint_pos[i]
