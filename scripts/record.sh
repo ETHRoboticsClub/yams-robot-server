@@ -17,7 +17,7 @@ if pgrep -f "realsense-viewer" >/dev/null; then
 fi
 
 YAML=configs/arms.yaml
-REPO=ETHRC/yams-carton-box-closing-sat-michael-mat-varing-fan-position-25-04-2025
+REPO=ETHRC/closed-carton-box-to-migros-box-go2
 AUTO_NAME=${AUTO_NAME:-false}
 DATASET_TAGS=${DATASET_TAGS:-yams,bimanual}
 RESUME=${RESUME:-true}
