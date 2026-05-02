@@ -28,8 +28,11 @@ logger = logging.getLogger(__name__)
 class BiYamsLeaderConfig(TeleoperatorConfig):
     left_arm_port: str
     right_arm_port: str
-    gripper_open_pos: int = 2280
-    gripper_closed_pos: int = 1670
+    left_gripper_open_pos: int = 1720
+    left_gripper_closed_pos: int = 2140
+    right_gripper_open_pos: int = 2270
+    right_gripper_closed_pos: int = 1960
+    gripper_scale: float = 1.0
 
 
 class BiYamsLeader(Teleoperator):
@@ -42,14 +45,16 @@ class BiYamsLeader(Teleoperator):
 
         left_arm_config = YamsLeaderConfig(
             port=self.config.left_arm_port,
-            gripper_open_pos=self.config.gripper_open_pos,
-            gripper_closed_pos=self.config.gripper_closed_pos,
+            gripper_open_pos=self.config.left_gripper_open_pos,
+            gripper_closed_pos=self.config.left_gripper_closed_pos,
+            gripper_scale=self.config.gripper_scale,
             side="left",
         )
         right_arm_config = YamsLeaderConfig(
             port=self.config.right_arm_port,
-            gripper_open_pos=self.config.gripper_open_pos,
-            gripper_closed_pos=self.config.gripper_closed_pos,
+            gripper_open_pos=self.config.right_gripper_open_pos,
+            gripper_closed_pos=self.config.right_gripper_closed_pos,
+            gripper_scale=self.config.gripper_scale,
             side="right",
         )
 

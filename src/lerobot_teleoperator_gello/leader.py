@@ -57,6 +57,7 @@ class YamsLeaderConfig(TeleoperatorConfig):
     port: str
     gripper_open_pos: int = 2280
     gripper_closed_pos: int = 1670
+    gripper_scale: float = 1.0
     calibration_path: str = "src/lerobot_teleoperator_gello/calibration"
     side: str = "right"
 
@@ -81,6 +82,12 @@ class YamsLeader(Teleoperator):
         if calibration_path.exists():
             with open(calibration_path, "r") as f:
                 self.calibration = yaml.safe_load(f)
+            mtime = calibration_path.stat().st_mtime
+            import datetime
+            ts = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+            print(f"[{self.config.side} leader] Loaded calibration from {calibration_path} (saved {ts})")
+            for joint, offset in self.calibration.get("offsets", {}).items():
+                print(f"  {joint}: offset={offset}")
         else:
             self.calibration = None
 
@@ -200,9 +207,10 @@ class YamsLeader(Teleoperator):
 
         # Normalize gripper position between 0 (closed) and 1 (open)
         gripper_range = self.config.gripper_open_pos - self.config.gripper_closed_pos
-        action["gripper.pos"] = (
-            action["gripper.pos"] - self.config.gripper_closed_pos
-        ) / gripper_range
+        action["gripper.pos"] = np.clip(
+            (action["gripper.pos"] - self.config.gripper_closed_pos) / gripper_range * self.config.gripper_scale,
+            0.0, 1.0,
+        )
 
         dt_ms = (time.perf_counter() - start) * 1e3
         logger.debug(f"{self} read action: {dt_ms:.1f}ms")
