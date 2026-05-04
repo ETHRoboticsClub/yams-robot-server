@@ -17,8 +17,8 @@ cd /home/ethrc/Desktop/yams-robot-server
 ./scripts/record.sh
 ```
 
-**Command to record Episodes**
-`NUM_EPISODES=50 EPISODE_TIME_S=50 PUSH_TO_HUB=true bash scripts/record.sh --log`
+**Command to record episodes:**
+```NUM_EPISODES=50 EPISODE_TIME_S=50 PUSH_TO_HUB=true bash scripts/record.sh --log```
 
 ---
 
