@@ -10,7 +10,7 @@ if $LOG; then
     exec > >(tee "$LOGFILE") 2>&1
 fi
 
-pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py" | grep -vx "$$" | xargs -r kill
+pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py|run_record.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
 RESUME=${RESUME:-false}
@@ -216,7 +216,7 @@ DATASET_ROOT=${DATASET_ROOT:-"$DATASET_BASE_DIR/$REPO"}
 
 cleanup_zero() {
     echo "Signal received: moving follower arms to zero"
-    pgrep -f "lerobot-record|lerobot-teleoperate" | grep -vx "$$" | xargs -r kill
+    pgrep -f "lerobot-record|lerobot-teleoperate|run_record.py" | grep -vx "$$" | xargs -r kill
     PYTHONPATH=src uv run python -m utils.move_arms_zero
 }
 
@@ -247,7 +247,8 @@ fi
 
 export PYNPUT_BACKEND_KEYBOARD=uinput
 export PYNPUT_BACKEND_MOUSE=dummy
-uv run lerobot-record \
+    #--policy.path="$POLICY_PATH" \
+uv run python run_record.py \
     --robot.type=bi_yams_follower \
     --teleop.type=bi_yams_leader \
     --teleop.left_arm_port="$LEFT_PORT" \
@@ -267,7 +268,10 @@ uv run lerobot-record \
     --dataset.vcodec="$VCODEC" \
     --robot.cameras="$cameras" \
     --dataset.streaming_encoding=true \
-    --policy.path="$POLICY_PATH" \
+    --policy.type=mimic_video \
+    --policy.task_prompt="$TASK" \
+    --policy.stop_video_denoising_step=20 \
+    --policy.use_action_rotation=false \
     --play_sounds=false &
 LEROBOT_PID=$!
 wait "$LEROBOT_PID"

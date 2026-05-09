@@ -5,7 +5,7 @@ collision:
 
 follower:
   left_arm:
-    can_port: can1
+    can_port: can0
     server_port: 11333
     motors:
       joint_1:
@@ -23,7 +23,7 @@ follower:
       gripper:
         label: Gripper
   right_arm:
-    can_port: can0
+    can_port: can1
     server_port: 11334
     motors:
       joint_1:
@@ -140,7 +140,7 @@ cameras:
     right_wrist:
       type: opencv-cached
       index_or_path: /dev/video0
-      fps: 30
+      fps: 5
       width: 640
       height: 480
       fourcc: MJPG
@@ -150,8 +150,8 @@ cameras:
       auto_exposure_max: 130
     left_wrist:
       type: opencv-cached
-      index_or_path: /dev/video8
-      fps: 30
+      index_or_path: /dev/video1
+      fps: 5
       width: 640
       height: 480
       fourcc: MJPG
@@ -163,6 +163,6 @@ cameras:
       type: intelrealsense-cached
       serial_number_or_name: "203522250539"
       warmup_s: 3
-      fps: 30
+      fps: 5
       width: 640
       height: 480

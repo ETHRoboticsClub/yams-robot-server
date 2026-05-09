@@ -27,7 +27,20 @@
       "Bash(python3 -c \"import json; info=json.load\\(open\\('/home/ethrc/.cache/huggingface/lerobot/ETHRC/yams-carton-box-closing-fri-tom-mat-varing-fan-position/meta/info.json'\\)\\); print\\('\\\\n'.join\\(sorted\\(info['features'].keys\\(\\)\\)\\)\\)\")",
       "Bash(lsusb -t)",
       "Bash(lsof /dev/video*)",
-      "Bash(python scripts/check_setup.py)"
+      "Bash(python scripts/check_setup.py)",
+      "Bash(xargs cat)",
+      "Bash(bash *)",
+      "Bash(/home/ethrc/Desktop/mimic-video/model/.venv/bin/python *)",
+      "Bash(kill -9 967670)",
+      "Bash(pkill -9 -f cosmos_worker.py)",
+      "Bash(pkill -9 -f compile_worker)",
+      "Bash(nvidia-smi --query-gpu=memory.used --format=csv,noheader)",
+      "Bash(rm -f /tmp/cosmos_worker.stderr /tmp/cosmos_test.stdout)",
+      "Bash(python3 /tmp/cosmos_test.py)",
+      "Bash(disown)",
+      "Bash(kill -0 971713)",
+      "Read(//tmp/**)",
+      "Bash(unset VIRTUAL_ENV)"
     ]
   }
 }
