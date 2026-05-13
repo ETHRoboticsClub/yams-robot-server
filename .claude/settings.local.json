@@ -40,7 +40,9 @@
       "Bash(disown)",
       "Bash(kill -0 971713)",
       "Read(//tmp/**)",
-      "Bash(unset VIRTUAL_ENV)"
+      "Bash(unset VIRTUAL_ENV)",
+      "Bash(python3 *)",
+      "Bash(/home/ethrc/Desktop/mimic-video/model/.venv/bin/python3 *)"
     ]
   }
 }

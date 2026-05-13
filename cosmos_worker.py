@@ -156,7 +156,7 @@ def main():
         # the parent's first real query doesn't pay the 30-90s compile cost.
         print("[cosmos_worker] warming up pipeline...", file=sys.stderr, flush=True)
         dummy_video = torch.zeros((1, 3, 5, 480, 640), dtype=torch.bfloat16, device="cuda")
-        dummy_state = torch.zeros((1, 1, 10), dtype=torch.bfloat16, device="cuda")
+        dummy_state = torch.zeros((1, 1, 14), dtype=torch.bfloat16, device="cuda")
         with torch.no_grad():
             pipeline(
                 input_vid=dummy_video,

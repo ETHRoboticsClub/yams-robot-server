@@ -14,7 +14,8 @@ pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py|run_record.py" | gre
 
 YAML=configs/arms.yaml
 RESUME=${RESUME:-false}
-PUSH_TO_HUB=${PUSH_TO_HUB:-true}
+RECORD=${RECORD:-false}
+PUSH_TO_HUB=${PUSH_TO_HUB:-false}
 NEW_REPO=${NEW_REPO:-false}
 MIN_CAMERA_FPS=$(yq '[.cameras.configs[].fps] | min' "$YAML")
 DATASET_FPS=${DATASET_FPS:-$MIN_CAMERA_FPS}
@@ -22,6 +23,7 @@ NUM_EPISODES=${NUM_EPISODES:-100}
 EPISODE_TIME_S=${EPISODE_TIME_S:-120}
 RESET_TIME_S=${RESET_TIME_S:-0}
 VCODEC=${VCODEC:-auto}
+STOP_VIDEO_DENOISING_STEP=${STOP_VIDEO_DENOISING_STEP:?must be set explicitly (mimic-video uses partial denoising; operator picks the value)}
 
 # =============================================================================
 # TASK: TOWEL FOLDING
@@ -48,13 +50,14 @@ VCODEC=${VCODEC:-auto}
 
 # =============================================================================
 # TASK: CARTON BOX CLOSING
-# Dataset: ETHRC/yams-carton-box-closing-mon-tom-mat  |  EPISODE_TIME_S=120  |  RESET_TIME_S=10
+# Dataset: ETHRC/yams-carton-box-closing-mon-tom-mat  |  EPISODE_TIME_S=240  |  RESET_TIME_S=10
 # To activate: uncomment the REPO, TASK, EPISODE_TIME_S, RESET_TIME_S and one POLICY_PATH below,
 #              comment out the TOWEL FOLDING section.
 # =============================================================================
 REPO=${REPO:-ETHRC/eval_carton_box_test}
-TASK=${TASK:-Pick & Place and Closing a Box}
-EPISODE_TIME_S=${EPISODE_TIME_S:-120}
+#TASK=${TASK:-Pick & Place and Closing a Box}
+TASK=${TASK:-Pick up the item and place it in the box}
+EPISODE_TIME_S=${EPISODE_TIME_S:-240}
 RESET_TIME_S=${RESET_TIME_S:-10}
 #
 # -- April 20 carton box runs --
@@ -202,22 +205,32 @@ LEFT_CAN=$(yq '.follower.left_arm.can_port' "$YAML")
 RIGHT_CAN=$(yq '.follower.right_arm.can_port' "$YAML")
 LEFT_SERVER=$(yq '.follower.left_arm.server_port' "$YAML")
 RIGHT_SERVER=$(yq '.follower.right_arm.server_port' "$YAML")
-cameras=$(yq -c '.cameras.configs' "$YAML")
+cameras=$(yq '.cameras.configs | pick(["topdown"])' "$YAML")
 CAMERA_PATHS=$(yq -r '.cameras.configs[] | select(has("index_or_path")) | .index_or_path' "$YAML")
 INTERRUPTED=false
+_TMPDIR=""
 
-if [ "$NEW_REPO" = "true" ]; then
-    RUN_ID=${RUN_ID:-$(date +%Y%m%d_%H%M%S)}
-    REPO="${REPO}_$RUN_ID"
-    echo "NEW_REPO=true: writing this eval to $REPO"
+if [ "$RECORD" = "false" ]; then
+    PUSH_TO_HUB=false
+    _TMPDIR=$(mktemp -d)
+    DATASET_ROOT=${DATASET_ROOT:-"$_TMPDIR/eval"}
+    REPO=${REPO:-"local/eval"}
+    echo "RECORD=false: dataset will not be saved (using $_TMPDIR)"
+else
+    if [ "$NEW_REPO" = "true" ]; then
+        RUN_ID=${RUN_ID:-$(date +%Y%m%d_%H%M%S)}
+        REPO="${REPO}_$RUN_ID"
+        echo "NEW_REPO=true: writing this eval to $REPO"
+    fi
+    DATASET_BASE_DIR=${DATASET_BASE_DIR:-"$HOME/.cache/huggingface/lerobot"}
+    DATASET_ROOT=${DATASET_ROOT:-"$DATASET_BASE_DIR/$REPO"}
 fi
-DATASET_BASE_DIR=${DATASET_BASE_DIR:-"$HOME/.cache/huggingface/lerobot"}
-DATASET_ROOT=${DATASET_ROOT:-"$DATASET_BASE_DIR/$REPO"}
 
 cleanup_zero() {
     echo "Signal received: moving follower arms to zero"
     pgrep -f "lerobot-record|lerobot-teleoperate|run_record.py" | grep -vx "$$" | xargs -r kill
     PYTHONPATH=src uv run python -m utils.move_arms_zero
+    [ -n "$_TMPDIR" ] && rm -rf "$_TMPDIR"
 }
 
 trap 'INTERRUPTED=true; [ -n "${LEROBOT_PID:-}" ] && kill -INT "$LEROBOT_PID" 2>/dev/null || true' INT TERM
@@ -239,7 +252,7 @@ for camera in $CAMERA_PATHS; do
     fi
 done
 
-if [ "$RESUME" != "true" ] && [ -d "$DATASET_ROOT" ]; then
+if [ "$RECORD" != "false" ] && [ "$RESUME" != "true" ] && [ -d "$DATASET_ROOT" ]; then
     read -r -p "ATTENTION: You set resume to false. DELETE YOUR ENTIRE DATASET at $DATASET_ROOT?? [y/N] " confirm
     [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || exit 1
     rm -rf "$DATASET_ROOT"
@@ -270,8 +283,7 @@ uv run python run_record.py \
     --dataset.streaming_encoding=true \
     --policy.type=mimic_video \
     --policy.task_prompt="$TASK" \
-    --policy.stop_video_denoising_step=20 \
-    --policy.use_action_rotation=false \
+    --policy.stop_video_denoising_step="$STOP_VIDEO_DENOISING_STEP" \
     --play_sounds=false &
 LEROBOT_PID=$!
 wait "$LEROBOT_PID"
@@ -281,6 +293,8 @@ trap - INT TERM
 if $INTERRUPTED || [ "$status" -eq 130 ] || [ "$status" -eq 143 ]; then
     trap '' INT TERM
     cleanup_zero
+else
+    [ -n "$_TMPDIR" ] && rm -rf "$_TMPDIR"
 fi
 
 exit "$status"

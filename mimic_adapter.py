@@ -2,10 +2,9 @@
 
 Wires the mimic-video Video2World2ActionPipeline into LeRobot as a policy named
 ``mimic_video``. The cosmos pipeline runs in a subprocess (cosmos_worker.py)
-backed by the mimic-video venv (Python 3.10 + cosmos deps); this module talks
-to it over stdin/stdout. The bridge-benchmark single-arm checkpoints (EEF
-deltas + 6D rotation + gripper) are zero-shot transferred to the YAMS right
-arm via numerical Jacobian IK; the left arm is held at its current pose.
+backed by the mimic-video venv (Python 3.10 + cosmos deps); this module talksto it over stdin/stdout. The bi_yams checkpoint outputs absolute 14-dim joint
+positions (both arms); the adapter linearly interpolates from the current
+observed joints to the target over action_hold_steps ticks.
 """
 
 from __future__ import annotations
@@ -16,6 +15,7 @@ import pickle
 import struct
 import subprocess
 import sys
+import threading
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
@@ -60,7 +60,6 @@ from lerobot.utils.constants import (
     POLICY_PREPROCESSOR_DEFAULT_NAME,
 )
 
-from lerobot_robot_yams.forward_kinematics import arm_fk
 
 _HERE = Path(__file__).parent
 _DEFAULT_CKPT_DIR = _HERE / "checkpoints"
@@ -69,13 +68,12 @@ _DEFAULT_WORKER = _HERE / "cosmos_worker.py"
 _DEFAULT_COSMOS_VENV = Path("/home/ethrc/Desktop/mimic-video/model/.venv")
 _DEFAULT_COSMOS_PYTHON = _DEFAULT_COSMOS_VENV / "bin" / "python"
 
-_VIDEO_BACKBONE = "v2w_bridge_lora_rank256_lr1.778e-04_bsz64_iter_000070043_fused.pt"
+_VIDEO_BACKBONE = "cosmos_ethrc_7000it.pt"
 _ACTION_DECODER = (
-    "w2a_bridge_v2w_bridge_lora_rank256_lr1.778e-04_bsz64_iter_000070043_fused"
-    "_lr1.000e-04_layer20_bsz256_iter_000014112.pt"
+    "action_decoder.pt"
 )
 _EXPERIMENT = (
-    "w2a_bridge_v2w_bridge_lora_rank256_lr1.778e-04_bsz64_iter_000070043_fused"
+    "w2a_bi_yams_v2w_bridge_lora_rank256_lr1.778e-04_bsz64_iter_000070043_fused"
     "_lr1.000e-04_layer20_bsz256"
 )
 
@@ -87,7 +85,7 @@ class MimicVideoConfig(PreTrainedConfig):
 
     video_backbone_path: str = str(_DEFAULT_CKPT_DIR / _VIDEO_BACKBONE)
     action_decoder_path: str = str(_DEFAULT_CKPT_DIR / _ACTION_DECODER)
-    dataset_statistics_path: str = str(_DEFAULT_STATS_DIR / "bridge.json")
+    dataset_statistics_path: str = str(_DEFAULT_STATS_DIR / "bi_yams_carton.json")
     experiment_name: str = _EXPERIMENT
 
     cosmos_python: str = str(_DEFAULT_COSMOS_PYTHON)
@@ -95,11 +93,12 @@ class MimicVideoConfig(PreTrainedConfig):
 
     img_horizon: int = 5
     lowdim_horizon: int = 1
-    camera_fps: int = 30
+    camera_fps: int = 5
     target_fps: int = 5
     num_sampling_steps: int = 35
     stop_video_denoising_step: int | None = None
-    num_execute_actions: int = 8
+    num_execute_actions: int = 15
+    action_stride: int = 2
 
     # Cuda graphs allocate ~1 GiB of private pool. On a 32 GiB card this
     # bumps the VAE decoder over the edge during the first decode → OOM.
@@ -107,29 +106,11 @@ class MimicVideoConfig(PreTrainedConfig):
     use_cuda_graphs: bool = False
     skip_warmup: bool = False
 
-    # Hold each model action for this many lerobot ticks before popping the
-    # next. The bridge model is trained at 5 fps; at 30 Hz cameras one delta
-    # would execute 6× faster than trained, so default = camera_fps/target_fps.
-    action_hold_steps: int = 6
-
-    # If False, IK ignores the model's absolute rotation and tracks only
-    # position (current EEF rotation is held). Bridge's rot6d lives in the
-    # WidowX base frame and won't transfer cleanly to YAMS — set False if the
-    # arm rotates wildly on first roll.
-    use_action_rotation: bool = True
+    action_hold_steps: int = 1
 
     task_prompt: str = ""
     image_obs_key: str = "observation.images.topdown"
     state_obs_key: str = "observation.state"
-
-    # Right gripper joint position (radians, YAMS i2rt convention) for bridge
-    # gripper signs -1 (open) and +1 (closed). Calibrate to your gripper's
-    # mechanical range — read off a teleop session.
-    gripper_open_rad: float = 0.0
-    gripper_close_rad: float = 0.785  # ~45 degrees
-
-    ik_max_iter: int = 30
-    ik_damping: float = 1e-2
 
     optimizer_lr: float = 1e-4
 
@@ -301,70 +282,6 @@ class _CosmosClient:
         self._proc = None  # type: ignore[assignment]
 
 
-def _rot6d_to_matrix(r6: np.ndarray) -> np.ndarray:
-    """Decode bridge's 6D rotation (first two rows of R) back into a 3x3 matrix."""
-    r1 = r6[:3]
-    r2 = r6[3:]
-    r1 = r1 / (np.linalg.norm(r1) + 1e-9)
-    r2 = r2 - np.dot(r2, r1) * r1
-    r2 = r2 / (np.linalg.norm(r2) + 1e-9)
-    r3 = np.cross(r1, r2)
-    return np.stack([r1, r2, r3], axis=0)
-
-
-def _matrix_to_6d(R: np.ndarray) -> np.ndarray:
-    return R[:2].reshape(6).astype(np.float32)
-
-
-def _matrix_to_axis_angle(R: np.ndarray) -> np.ndarray:
-    cos_theta = np.clip((np.trace(R) - 1.0) * 0.5, -1.0, 1.0)
-    theta = float(np.arccos(cos_theta))
-    if abs(theta) < 1e-6:
-        return np.zeros(3)
-    axis = np.array(
-        [R[2, 1] - R[1, 2], R[0, 2] - R[2, 0], R[1, 0] - R[0, 1]], dtype=np.float64
-    )
-    return axis * theta / (2.0 * np.sin(theta))
-
-
-def _eef_pose(q_rad: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    _, T = arm_fk(q_rad)
-    return T[:3, 3].astype(np.float64).copy(), T[:3, :3].astype(np.float64).copy()
-
-
-def _eef_jacobian(q_rad: np.ndarray, eps: float = 1e-4) -> np.ndarray:
-    pos0, R0 = _eef_pose(q_rad)
-    J = np.zeros((6, 6), dtype=np.float64)
-    for i in range(6):
-        dq = q_rad.copy()
-        dq[i] += eps
-        pos1, R1 = _eef_pose(dq)
-        dR = R1 @ R0.T
-        J[:3, i] = (pos1 - pos0) / eps
-        J[3:, i] = _matrix_to_axis_angle(dR) / eps
-    return J
-
-
-def _ik(
-    q_seed: np.ndarray,
-    target_pos: np.ndarray,
-    target_R: np.ndarray,
-    max_iter: int,
-    lam: float,
-) -> np.ndarray:
-    q = q_seed.astype(np.float64).copy()
-    for _ in range(max_iter):
-        cur_pos, cur_R = _eef_pose(q)
-        pos_err = target_pos - cur_pos
-        rot_err = _matrix_to_axis_angle(target_R @ cur_R.T)
-        err = np.concatenate([pos_err, rot_err])
-        if np.linalg.norm(err) < 1e-4:
-            break
-        J = _eef_jacobian(q)
-        dq = np.linalg.solve(J.T @ J + lam * np.eye(6), J.T @ err)
-        q = q + dq
-    return q
-
 
 class MimicVideoPolicy(PreTrainedPolicy):
     name = "mimic_video"
@@ -386,30 +303,30 @@ class MimicVideoPolicy(PreTrainedPolicy):
         self._img_history: deque[np.ndarray] = deque(maxlen=hist_len)
         self._lowdim_history: deque[np.ndarray] = deque(maxlen=config.lowdim_horizon)
         self._action_buf: list[np.ndarray] = []
-        self._last_q_rad: np.ndarray | None = None
-
         self._hold_remaining = 0
-        self._pending_start_pos: np.ndarray | None = None
-        self._pending_delta_pos: np.ndarray | None = None
-        self._pending_action_R: np.ndarray | None = None
-        self._pending_gripper_rad: float = 0.0
+        self._pending_start_joints: np.ndarray | None = None
+        self._pending_target_joints: np.ndarray | None = None
 
-        # Diagnostics: log a one-time summary of the first frame the policy
-        # receives, then a stat line on every model query, so we can tell
-        # at a glance whether the topdown camera is feeding real pixels vs
-        # black/garbage frames.
+        self._prefetch_thread: threading.Thread | None = None
+        self._prefetch_result: list[np.ndarray] | None = None
+        self._prefetch_exc: BaseException | None = None
+
         self._tick_count = 0
         self._logged_first_frame = False
 
     def reset(self) -> None:
+        # Join any in-flight prefetch so the cosmos IPC channel is free.
+        if self._prefetch_thread is not None:
+            self._prefetch_thread.join()
+        self._prefetch_thread = None
+        self._prefetch_result = None
+        self._prefetch_exc = None
         self._img_history.clear()
         self._lowdim_history.clear()
         self._action_buf = []
-        self._last_q_rad = None
         self._hold_remaining = 0
-        self._pending_start_pos = None
-        self._pending_delta_pos = None
-        self._pending_action_R = None
+        self._pending_start_joints = None
+        self._pending_target_joints = None
 
     def get_optim_params(self) -> dict:
         return {}
@@ -453,7 +370,16 @@ class MimicVideoPolicy(PreTrainedPolicy):
 
         if self._hold_remaining == 0:
             if not self._action_buf:
-                self._action_buf = self._query_pipeline()
+                # Buffer empty: collect prefetch (may block briefly if not done).
+                if self._prefetch_thread is not None:
+                    self._action_buf = self._collect_prefetch()
+                else:
+                    self._action_buf = self._query_pipeline()
+                # Batch just refilled — launch next inference immediately so it
+                # runs during this batch's execution window (~3 s) rather than
+                # blocking after the last action is consumed.
+                if self._prefetch_thread is None:
+                    self._launch_prefetch()
             self._latch_next_action(self._action_buf.pop(0), state)
             self._hold_remaining = max(1, self.cfg.action_hold_steps)
 
@@ -463,27 +389,14 @@ class MimicVideoPolicy(PreTrainedPolicy):
     def _latch_next_action(
         self, action: np.ndarray, obs_state: torch.Tensor
     ) -> None:
-        # Snapshot the EEF position at latch time. _to_joint_tensor marches
-        # the IK target linearly from snapshot_pos toward snapshot_pos+Δ
-        # over `action_hold_steps` ticks. Re-anchoring to obs each tick
-        # (the previous strategy) leaks motion when the arm follows slowly:
-        # the target only ever sits Δ/N ahead of the current pose so the
-        # cumulative motion is bounded by tracking error, not by Δ.
-        full = obs_state[0].detach().cpu().numpy().astype(np.float64)
-        cur_q_rad = full[7:13]
-        cur_pos, cur_R = _eef_pose(cur_q_rad)
-        self._pending_start_pos = cur_pos
-        self._pending_delta_pos = action[:3].astype(np.float64)
-        self._pending_action_R = (
-            _rot6d_to_matrix(action[3:9].astype(np.float64))
-            if self.cfg.use_action_rotation
-            else cur_R
-        )
-        self._pending_gripper_rad = float(
-            self.cfg.gripper_close_rad
-            if float(action[9]) > 0
-            else self.cfg.gripper_open_rad
-        )
+        if np.any(np.isnan(action)) or np.any(np.isinf(action)):
+            logging.error("[mimic_video] NaN/Inf in action — holding current position")
+            observed = obs_state[0].detach().cpu().numpy().astype(np.float64)
+            self._pending_start_joints = observed
+            self._pending_target_joints = observed
+            return
+        self._pending_start_joints = obs_state[0].detach().cpu().numpy().astype(np.float64)
+        self._pending_target_joints = action.astype(np.float64)
 
     def _process_image(self, img_tensor: torch.Tensor) -> np.ndarray:
         # img_tensor: (1, C, H, W) float32 in [0, 1] from prepare_observation_for_inference.
@@ -492,38 +405,24 @@ class MimicVideoPolicy(PreTrainedPolicy):
         return x[:, None, :, :]  # (C, 1, H, W) — T-axis has length 1 per frame
 
     def _state_from_obs(self, obs_state: torch.Tensor) -> np.ndarray:
-        # obs_state: (1, 14) joint positions in *radians* (YAMS / i2rt
-        # convention), layout [left_j1..left_j6, left_grip, right_j1..right_j6,
-        # right_grip].
-        full = obs_state[0].detach().cpu().numpy().astype(np.float64)
-        right_q_rad = full[7:13]
-        right_gripper_rad = full[13]
-        pos, R = _eef_pose(right_q_rad)
-        rot6d = _matrix_to_6d(R)
+        # obs_state: (1, 14) — [left_j1..j6, left_grip, right_j1..j6, right_grip] in radians.
+        return obs_state[0].detach().cpu().numpy().astype(np.float32)
 
-        center = 0.5 * (self.cfg.gripper_close_rad + self.cfg.gripper_open_rad)
-        half_span = 0.5 * (self.cfg.gripper_close_rad - self.cfg.gripper_open_rad)
-        gripper_signed = float((right_gripper_rad - center) / (half_span + 1e-9))
-        return np.concatenate([pos, rot6d, [gripper_signed]]).astype(np.float32)
-
-    def _query_pipeline(self) -> list[np.ndarray]:
-        sampled_frames = list(self._img_history)[:: self._stride]
-        # Each frame is (C, 1, H, W); concat along T -> (C, T, H, W).
-        images = np.concatenate(sampled_frames, axis=1).astype(np.float32)
+    def _snapshot_obs(self) -> tuple[np.ndarray, np.ndarray]:
+        sampled = list(self._img_history)[:: self._stride]
+        images = np.concatenate(sampled, axis=1).astype(np.float32)
         lowdims = np.stack(list(self._lowdim_history), axis=0).astype(np.float32)
+        return images, lowdims
 
+    def _run_inference(self, images: np.ndarray, lowdims: np.ndarray) -> list[np.ndarray]:
         logging.info(
-            "[mimic_video] query #%d: video=%s [min=%.3f mean=%.3f max=%.3f] "
-            "state=%s",
-            self._tick_count // max(1, self.cfg.action_hold_steps * self.cfg.num_execute_actions) + 1,
+            "[mimic_video] query: video=%s [min=%.3f mean=%.3f max=%.3f] state=%s",
             tuple(images.shape),
             float(images.min()),
             float(images.mean()),
             float(images.max()),
             lowdims[-1].round(3).tolist(),
         )
-
-        # Add batch axis -> (1, C, T, H, W) and (1, H_O, 10).
         actions = self._client.infer(
             video=images[None],
             state=lowdims[None],
@@ -532,49 +431,54 @@ class MimicVideoPolicy(PreTrainedPolicy):
             stop_after_step=self.cfg.stop_video_denoising_step,
             use_cuda_graphs=self.cfg.use_cuda_graphs,
         )
-        actions = actions[0]  # (15, 10)
+        actions = actions[0]  # (action_horizon, 14)
         logging.info(
-            "[mimic_video] actions[0]=%s actions[7]=%s actions[14]=%s",
+            "[mimic_video] actions[0]=%s actions[-1]=%s",
             actions[0].round(3).tolist(),
-            actions[min(7, actions.shape[0] - 1)].round(3).tolist(),
             actions[-1].round(3).tolist(),
         )
-        n = min(self.cfg.num_execute_actions, actions.shape[0])
-        return [actions[i] for i in range(n)]
+        strided = actions[:: self.cfg.action_stride]
+        n = min(self.cfg.num_execute_actions, strided.shape[0])
+        return [strided[i] for i in range(n)]
+
+    def _query_pipeline(self) -> list[np.ndarray]:
+        images, lowdims = self._snapshot_obs()
+        return self._run_inference(images, lowdims)
+
+    def _launch_prefetch(self) -> None:
+        """Snapshot observations now and run inference in a background thread."""
+        images, lowdims = self._snapshot_obs()
+
+        def _run() -> None:
+            try:
+                self._prefetch_result = self._run_inference(images, lowdims)
+            except BaseException as exc:
+                self._prefetch_exc = exc
+
+        self._prefetch_result = None
+        self._prefetch_exc = None
+        self._prefetch_thread = threading.Thread(target=_run, daemon=True)
+        self._prefetch_thread.start()
+
+    def _collect_prefetch(self) -> list[np.ndarray]:
+        """Wait for background inference and return its result."""
+        assert self._prefetch_thread is not None
+        self._prefetch_thread.join()
+        self._prefetch_thread = None
+        exc = self._prefetch_exc
+        result = self._prefetch_result
+        self._prefetch_exc = None
+        self._prefetch_result = None
+        if exc is not None:
+            raise exc
+        return result  # type: ignore[return-value]
 
     def _to_joint_tensor(self, obs_state: torch.Tensor) -> torch.Tensor:
-        assert self._pending_start_pos is not None
-        assert self._pending_delta_pos is not None
-        assert self._pending_action_R is not None
-
-        full = obs_state[0].detach().cpu().numpy().astype(np.float32)
-        # IK seed must be the observed joints (not the last computed
-        # solution) to avoid drifting onto fictional inverse branches.
-        cur_right_q_rad = full[7:13].astype(np.float64)
-
-        # March the IK target linearly along the snapshotted trajectory:
-        # at tick k of N, target = start + Δ * (k/N). Reaches start+Δ on
-        # the final tick, regardless of how slowly the arm tracks.
         hold_steps = max(1, self.cfg.action_hold_steps)
-        elapsed = hold_steps - self._hold_remaining  # 0..hold_steps-1 after decrement
-        progress = (elapsed + 1) / hold_steps        # 1/N, 2/N, ..., 1.0
-        target_pos = self._pending_start_pos + self._pending_delta_pos * progress
-        target_R = self._pending_action_R
-
-        q_rad = _ik(
-            cur_right_q_rad,
-            target_pos,
-            target_R,
-            max_iter=self.cfg.ik_max_iter,
-            lam=self.cfg.ik_damping,
-        )
-        self._last_q_rad = q_rad
-
-        out = full.copy()
-        out[7:13] = q_rad.astype(np.float32)
-        out[13] = self._pending_gripper_rad
-        # Left arm (out[0:7]) stays at currently observed positions.
-        return torch.from_numpy(out).unsqueeze(0)
+        elapsed = hold_steps - self._hold_remaining  # 1..hold_steps after decrement
+        progress = elapsed / hold_steps              # 1/N, 2/N, ..., 1.0
+        joints = self._pending_start_joints + (self._pending_target_joints - self._pending_start_joints) * progress
+        return torch.from_numpy(joints.astype(np.float32)).unsqueeze(0)
 
     def __del__(self) -> None:
         try:

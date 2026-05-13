@@ -139,8 +139,8 @@ cameras:
   configs:
     right_wrist:
       type: opencv-cached
-      index_or_path: /dev/video0
-      fps: 5
+      index_or_path: /dev/video2
+      fps: 30
       width: 640
       height: 480
       fourcc: MJPG
@@ -150,8 +150,8 @@ cameras:
       auto_exposure_max: 130
     left_wrist:
       type: opencv-cached
-      index_or_path: /dev/video1
-      fps: 5
+      index_or_path: /dev/video0
+      fps: 30
       width: 640
       height: 480
       fourcc: MJPG
