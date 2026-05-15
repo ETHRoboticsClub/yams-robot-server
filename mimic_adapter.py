@@ -98,6 +98,8 @@ class MimicVideoConfig(PreTrainedConfig):
     num_sampling_steps: int = 35
     stop_video_denoising_step: int | None = None
     num_execute_actions: int = 15
+    # Training emits 30 actions at 10 Hz (3 s); lerobot ticks at 5 Hz, so
+    # consume every other action to keep the wall-clock playback rate matched.
     action_stride: int = 2
 
     # Cuda graphs allocate ~1 GiB of private pool. On a 32 GiB card this
@@ -111,6 +113,13 @@ class MimicVideoConfig(PreTrainedConfig):
     task_prompt: str = ""
     image_obs_key: str = "observation.images.topdown"
     state_obs_key: str = "observation.state"
+
+    # Debug: if set, dump the cosmos predicted-future video (full denoising +
+    # VAE decode) as MP4 under this directory. Runs a second forward pass per
+    # dump tick — roughly doubles per-batch inference time, so use
+    # future_video_dump_every_n to throttle.
+    future_video_debug_dir: str = ""
+    future_video_dump_every_n: int = 1
 
     optimizer_lr: float = 1e-4
 
@@ -246,6 +255,7 @@ class _CosmosClient:
         num_sampling_step: int,
         stop_after_step: int | None,
         use_cuda_graphs: bool,
+        future_video_dump_path: str | None = None,
     ) -> np.ndarray:
         self._write(
             {
@@ -256,6 +266,7 @@ class _CosmosClient:
                 "num_sampling_step": num_sampling_step,
                 "stop_after_step": stop_after_step,
                 "use_cuda_graphs": use_cuda_graphs,
+                "future_video_dump_path": future_video_dump_path,
             }
         )
         msg = self._read()
@@ -313,6 +324,7 @@ class MimicVideoPolicy(PreTrainedPolicy):
 
         self._tick_count = 0
         self._logged_first_frame = False
+        self._inference_count = 0
 
     def reset(self) -> None:
         # Join any in-flight prefetch so the cosmos IPC channel is free.
@@ -423,6 +435,7 @@ class MimicVideoPolicy(PreTrainedPolicy):
             float(images.max()),
             lowdims[-1].round(3).tolist(),
         )
+        future_video_dump_path = self._next_future_video_dump_path()
         actions = self._client.infer(
             video=images[None],
             state=lowdims[None],
@@ -430,6 +443,7 @@ class MimicVideoPolicy(PreTrainedPolicy):
             num_sampling_step=self.cfg.num_sampling_steps,
             stop_after_step=self.cfg.stop_video_denoising_step,
             use_cuda_graphs=self.cfg.use_cuda_graphs,
+            future_video_dump_path=future_video_dump_path,
         )
         actions = actions[0]  # (action_horizon, 14)
         logging.info(
@@ -444,6 +458,18 @@ class MimicVideoPolicy(PreTrainedPolicy):
     def _query_pipeline(self) -> list[np.ndarray]:
         images, lowdims = self._snapshot_obs()
         return self._run_inference(images, lowdims)
+
+    def _next_future_video_dump_path(self) -> str | None:
+        self._inference_count += 1
+        if not self.cfg.future_video_debug_dir:
+            return None
+        n = max(1, self.cfg.future_video_dump_every_n)
+        if (self._inference_count - 1) % n != 0:
+            return None
+        import time
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        fname = f"pred_{self._inference_count:05d}_{ts}.mp4"
+        return str(Path(self.cfg.future_video_debug_dir) / fname)
 
     def _launch_prefetch(self) -> None:
         """Snapshot observations now and run inference in a background thread."""

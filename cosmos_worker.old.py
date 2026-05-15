@@ -5,7 +5,6 @@ length-prefixed pickled blobs with a parent process (the lerobot policy adapter)
 over stdin/stdout. The parent stays in the YAMS venv (Python 3.12, lerobot).
 
 Protocol — every message is `[4-byte big-endian length][pickle bytes]`:
-
   parent -> worker: {"type": "infer",
                      "video": np.ndarray (1, C, T, H, W) float32 in [-1, 1],
                      "state": np.ndarray (1, H_O, 10) float32,
@@ -14,11 +13,9 @@ Protocol — every message is `[4-byte big-endian length][pickle bytes]`:
                      "stop_after_step": int | None,
                      "use_cuda_graphs": bool,
                      "future_video_dump_path": str | None}  # optional debug MP4 path
-
   worker -> parent: {"type": "actions", "actions": np.ndarray (1, 15, 10) float32}
 
   parent -> worker: {"type": "exit"}                       # graceful shutdown
-
   worker -> parent: {"type": "ready"}                      # one-shot, after init
   worker -> parent: {"type": "error", "msg": "<traceback>"}  # on infer failure
 """
@@ -71,13 +68,6 @@ _COSMOS_DEFAULT_NEGATIVE_PROMPT = (
     "fake elements, unconvincing visuals, poorly edited content, jump cuts, visual "
     "noise, and flickering. Overall, the video is of poor quality."
 )
-
-# Default CFG scale for the cosmos predict2 video backbone. Matches the value
-# used in mimic-video/model/scripts/run_video2world.py. If the live action
-# pipeline ends up using a different guidance internally, set this to match
-# so the debug dump visualizes the same latent distribution the action
-# decoder is actually consuming.
-_COSMOS_DEFAULT_GUIDANCE = 7.0
 
 
 def _pack_array(arr: np.ndarray) -> tuple:
@@ -260,23 +250,17 @@ def main():
             future_path = msg.get("future_video_dump_path")
             if future_path:
                 # Mirror the live action call exactly — same T=5 input, same
-                # CFG settings — only difference is return_context_at_step=None
-                # (run all denoising steps) so we can VAE-decode the final
-                # latent into pixels.
-                #
-                # IMPORTANT: do NOT pass guidance=0.0 / negative_prompt="" here.
-                # With CFG that collapses the output to the unconditional
-                # branch on an empty prompt, which decodes to pure noise
-                # past the conditioning frames (see the comment on
-                # _COSMOS_DEFAULT_NEGATIVE_PROMPT above).
+                # guidance=0.0, same empty negative prompt — only difference is
+                # return_context_at_step=None (run all denoising steps) so we
+                # can VAE-decode the final latent into pixels.
                 T = video.shape[2]
                 with torch.no_grad():
                     decoded = pipeline.video2world_pipeline.generate_video(
                         vid_input=video,
                         num_latent_conditional_frames=1 if T == 1 else 2,
                         prompt=msg["prompt"],
-                        negative_prompt=_COSMOS_DEFAULT_NEGATIVE_PROMPT,
-                        guidance=_COSMOS_DEFAULT_GUIDANCE,
+                        negative_prompt="",
+                        guidance=0.0,
                         num_sampling_step=msg["num_sampling_step"],
                         return_context_at_step=None,
                         use_cuda_graphs=msg.get("use_cuda_graphs", True),
