@@ -178,3 +178,35 @@ class RealSenseCameraCached(RealSenseCamera):
         if last_error is not None:
             raise last_error
         raise RuntimeError(f"{self} failed to connect.")
+
+    def _read_loop(self) -> None:
+        failure_count = 0
+        while True:
+            stop_event = self.stop_event
+            if stop_event is None or stop_event.is_set():
+                break
+            try:
+                frame = self._read_from_hardware()
+                color_frame_raw = frame.get_color_frame()
+                color_frame = np.asanyarray(color_frame_raw.get_data())
+                processed_color_frame = self._postprocess_image(color_frame)
+
+                if self.use_depth:
+                    depth_frame_raw = frame.get_depth_frame()
+                    depth_frame = np.asanyarray(depth_frame_raw.get_data())
+                    processed_depth_frame = self._postprocess_image(depth_frame, depth_frame=True)
+
+                capture_time = time.perf_counter()
+                with self.frame_lock:
+                    self.latest_color_frame = processed_color_frame
+                    if self.use_depth:
+                        self.latest_depth_frame = processed_depth_frame
+                    self.latest_timestamp = capture_time
+                self.new_frame_event.set()
+                failure_count = 0
+            except Exception as e:
+                if failure_count <= 10:
+                    failure_count += 1
+                    logger.warning(f"Error reading frame in background thread for {self}: {e}")
+                else:
+                    raise RuntimeError(f"{self} exceeded maximum consecutive read failures.") from e

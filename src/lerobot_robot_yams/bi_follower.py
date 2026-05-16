@@ -119,6 +119,16 @@ class BiYamsFollower(Robot):
         self.left_arm.configure()
         self.right_arm.configure()
 
+    def _read_camera_or_last_frame(self, cam_key: str, future: Any, cam: Any) -> np.ndarray:
+        try:
+            return future.result()
+        except (TimeoutError, OSError, RuntimeError) as exc:
+            frame = getattr(cam, "last_frame", None)
+            if frame is not None:
+                logger.warning("%s read failed, using last frame: %s", cam_key, exc)
+                return frame
+            raise CameraReadError(f"{cam_key} read failed: {exc}") from exc
+
     def get_observation(self, with_cameras=True) -> dict[str, Any]:
         obs_dict = {}
 
@@ -137,10 +147,9 @@ class BiYamsFollower(Robot):
             }
             for cam_key, future in cam_futures.items():
                 start = time.perf_counter()
-                try:
-                    obs_dict[cam_key] = future.result()
-                except (TimeoutError, OSError) as exc:
-                    raise CameraReadError(f"{cam_key} read failed: {exc}") from exc
+                obs_dict[cam_key] = self._read_camera_or_last_frame(
+                    cam_key=cam_key, future=future, cam=self.cameras[cam_key]
+                )
                 dt_ms = (time.perf_counter() - start) * 1e3
                 logger.debug(f"{self} read {cam_key}: {dt_ms:.1f}ms")
 
