@@ -100,6 +100,10 @@ from cosmos_predict2.pipelines.world2action import World2ActionPipeline
 from imaginaire.lazy_config import instantiate
 from imaginaire.utils.config_helper import override
 
+# T5 prompt embedding cache lives next to this file at the repo root.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _t5_cache  # noqa: E402
+
 
 def _save_predicted_video(video: torch.Tensor, path: str, fps: int) -> None:
     """Write a (B, C, T, H, W) bf16 tensor in [-1, 1] as an MP4 at `path`.
@@ -144,10 +148,114 @@ def _write_blob(stream, obj):
     stream.flush()
 
 
+class _CachedTextEncoder(torch.nn.Module):
+    """Drop-in replacement for CosmosT5TextEncoder backed by the on-disk cache.
+
+    Returns precomputed embeddings instead of running T5-11B. The pipeline's
+    encode_prompt() at video2world.py:464 iterates parameters() to decide whether
+    to shuttle the encoder between CPU and GPU; we report no parameters so the
+    shuttle is skipped (cached tensors are tiny and already on the right device).
+    """
+
+    def __init__(self, num_tokens: int, embed_dim: int, device: str = "cuda"):
+        super().__init__()
+        self.device = device
+
+        class _Cfg:
+            pass
+
+        self.config = _Cfg()
+        self.config.num_tokens = num_tokens
+        self.config.embed_dim = embed_dim
+
+    def parameters(self, recurse: bool = True):
+        return iter([])
+
+    def to(self, *args, **kwargs):
+        target = args[0] if args else kwargs.get("device", self.device)
+        if isinstance(target, torch.device):
+            self.device = str(target)
+        elif isinstance(target, str):
+            self.device = target
+        return self
+
+    @torch.inference_mode()
+    def encode_prompts(self, prompts, max_length=None, return_mask: bool = False):
+        if isinstance(prompts, str):
+            prompts = [prompts]
+        if not prompts:
+            raise ValueError("The input prompt list is empty.")
+
+        emb_list: list[torch.Tensor] = []
+        mask_list: list[torch.Tensor] = []
+        for p in prompts:
+            entry = _t5_cache.load(p, device=self.device)
+            if entry is None:
+                raise RuntimeError(
+                    f"T5 cache miss inside _CachedTextEncoder for prompt: {p!r}. "
+                    f"Run scripts/precompute_prompt.py first, or restart the worker "
+                    f"without --task-prompt to fall back to T5."
+                )
+            emb = entry["embedding"]
+            if emb.dim() == 2:
+                emb = emb.unsqueeze(0)
+            emb_list.append(emb.to(self.device))
+            if return_mask:
+                m = entry.get("mask")
+                if m is None:
+                    raise RuntimeError(
+                        f"T5 cache entry missing mask for prompt: {p!r}. "
+                        f"Re-run scripts/precompute_prompt.py --force to regenerate."
+                    )
+                if m.dim() == 1:
+                    m = m.unsqueeze(0)
+                mask_list.append(m.to(self.device))
+
+        emb_out = torch.cat(emb_list, dim=0)
+        if return_mask:
+            return emb_out, torch.cat(mask_list, dim=0).bool()
+        return emb_out
+
+
+def _t5_cache_targets(task_prompt: str) -> list[str]:
+    """Prompts whose embeddings must be cached to skip the T5 load.
+
+    Always includes the task prompt. Also includes the debug-dump negative
+    prompt so the DUMP_VIDEO path (which goes through encode_prompts on the
+    cached encoder) doesn't fail mid-run if a user flips DUMP_VIDEO on.
+    """
+    return [task_prompt, _COSMOS_DEFAULT_NEGATIVE_PROMPT]
+
+
 def load_pipeline(args):
     cfg = make_config()
     cfg = override(cfg, ["--", f"experiment={args.experiment_name}"])
     cfg.model.config.video_pipe_config.guardrail_config.enabled = False
+    t5_cfg = cfg.model.config.video_pipe_config.text_encoder.t5
+
+    # T5 prompt embedding cache decision: if every prompt we might encode is
+    # already on disk, skip the ~80 s T5-11B load entirely.
+    cache_targets = _t5_cache_targets(args.task_prompt) if args.task_prompt else []
+    t5_cache_hit = bool(cache_targets) and all(
+        _t5_cache.load(p) is not None for p in cache_targets
+    )
+    if t5_cache_hit:
+        print(
+            "[cosmos_worker] T5 cache HIT — skipping T5-11B load",
+            file=sys.stderr, flush=True,
+        )
+    elif args.task_prompt:
+        missing = [p for p in cache_targets if _t5_cache.load(p) is None]
+        print(
+            f"[cosmos_worker] T5 cache MISS ({len(missing)}/{len(cache_targets)} prompt(s) "
+            f"uncached) — loading T5-11B and will populate cache for next run",
+            file=sys.stderr, flush=True,
+        )
+    else:
+        print(
+            "[cosmos_worker] no --task-prompt provided — loading T5-11B (cache disabled)",
+            file=sys.stderr, flush=True,
+        )
 
     video_pipe = Video2WorldPipeline.from_config(
         config=cfg.model.config.video_pipe_config,
@@ -156,7 +264,33 @@ def load_pipeline(args):
         torch_dtype=torch.bfloat16,
         load_ema_to_reg=False,
         offload_text_encoder=True,
+        use_text_encoder=not t5_cache_hit,
     )
+
+    if t5_cache_hit:
+        # Pipeline got text_encoder=None back from from_config; install the stub.
+        video_pipe.text_encoder = _CachedTextEncoder(
+            num_tokens=t5_cfg.num_tokens,
+            embed_dim=t5_cfg.embed_dim,
+        )
+    elif args.task_prompt:
+        # T5 is loaded — encode the prompts we want cached and write them out
+        # so the next worker restart hits the fast path. Each encode is fast
+        # (~100 ms); the expensive work is the T5 load we already paid for.
+        for prompt in cache_targets:
+            if _t5_cache.load(prompt) is not None:
+                continue
+            emb, mask = video_pipe.text_encoder.encode_prompts(
+                prompt, return_mask=True,
+            )
+            path = _t5_cache.save(prompt, emb, mask, max_length=t5_cfg.num_tokens)
+            print(
+                f"[cosmos_worker] cached T5 embedding {path.name} "
+                f"(shape={tuple(emb.shape)}) for prompt: {prompt[:60]}"
+                f"{'...' if len(prompt) > 60 else ''}",
+                file=sys.stderr, flush=True,
+            )
+
     action_pipe = World2ActionPipeline.from_config(
         cfg.model.config.pipe_config,
         dit_path=args.action_decoder_path,
@@ -193,6 +327,17 @@ def main():
         default=None,
         help="If set, run a warmup pass with this stop step. If unset, skip warmup.",
     )
+    parser.add_argument(
+        "--task-prompt",
+        type=str,
+        default="",
+        help=(
+            "Task prompt this worker will encode. When set, the worker checks "
+            "the T5 embedding cache (~/.cache/mimic-yams/t5_embeddings/) and "
+            "skips the ~80 s T5-11B load if the prompt is already cached. "
+            "When empty (default), the cache is bypassed and T5 loads normally."
+        ),
+    )
     args = parser.parse_args()
 
     pipeline = load_pipeline(args)
@@ -203,11 +348,12 @@ def main():
         print("[cosmos_worker] warming up pipeline...", file=sys.stderr, flush=True)
         dummy_video = torch.zeros((1, 3, 5, 480, 640), dtype=torch.bfloat16, device="cuda")
         dummy_state = torch.zeros((1, 1, 14), dtype=torch.bfloat16, device="cuda")
+        warmup_prompt = args.task_prompt or "warmup"
         with torch.no_grad():
             pipeline(
                 input_vid=dummy_video,
                 state_B_HO_O=dummy_state,
-                prompt="warmup",
+                prompt=warmup_prompt,
                 num_sampling_step=args.num_sampling_steps,
                 stop_after_step=args.stop_after_step,
                 use_cuda_graphs=args.use_cuda_graphs,

@@ -202,6 +202,7 @@ class _CosmosClient:
             "--dataset-statistics-path", config.dataset_statistics_path,
             "--experiment-name", config.experiment_name,
             "--num-sampling-steps", str(config.num_sampling_steps),
+            "--task-prompt", config.task_prompt,
         ]
         if config.stop_video_denoising_step is not None and not config.skip_warmup:
             cmd += ["--stop-after-step", str(config.stop_video_denoising_step)]
