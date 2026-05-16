@@ -1,3 +1,4 @@
+Note: 3 denoising steps seems to be opt
 ## Quick Start (on-site machine)
 
 Before teleop/recording, run the setup checker:
