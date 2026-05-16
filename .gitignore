@@ -234,3 +234,5 @@ tommaso/
 .sisyphus/
 
 .can-signatures.json
+
+/checkpoints/
