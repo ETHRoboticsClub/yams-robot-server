@@ -4,6 +4,14 @@ collision:
   max_joint_step: [0.5, 0.35, 0.3, 0.3, 0.7, 0.7]  # radians per action, per joint
 
 follower:
+  startup_pose:
+    joint_0: -0.4
+    joint_1: 1.1
+    joint_2: 1.08
+    joint_3: -0.5
+    joint_4: 0.0
+    joint_5: 0.0
+    joint_6: 0.91
   left_arm:
     can_port: can1
     server_port: 11333

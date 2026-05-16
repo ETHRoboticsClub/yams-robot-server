@@ -18,7 +18,9 @@ from lerobot_robot_yams.forward_kinematics import check_action
 logger = logging.getLogger(__name__)
 
 _ARMS_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "arms.yaml"
-_COLLISION = yaml.safe_load(_ARMS_CONFIG_PATH.read_text())["collision"]
+_ARMS_CONFIG = yaml.safe_load(_ARMS_CONFIG_PATH.read_text())
+_COLLISION = _ARMS_CONFIG["collision"]
+_STARTUP_POSE = _ARMS_CONFIG["follower"].get("startup_pose", {})
 
 
 class CameraReadError(RuntimeError):
@@ -39,6 +41,10 @@ class BiYamsFollowerConfig(RobotConfig):
     max_joint_step: np.ndarray = field(
         default_factory=lambda: np.array(_COLLISION["max_joint_step"])
     )
+    action_smoothing_steps: int = 1
+    action_smoothing_duration_s: float = 0.0
+    startup_pose_duration_s: float = 2.0
+    startup_settle_s: float = 0.25
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
 
 
@@ -107,6 +113,7 @@ class BiYamsFollower(Robot):
 
         self.left_arm.connect()
         self.right_arm.connect()
+        self._slow_move_to_startup_pose()
 
     @property
     def is_calibrated(self) -> bool:
@@ -147,6 +154,70 @@ class BiYamsFollower(Robot):
         return obs_dict
 
     def send_action(self, action: dict[str, Any]) -> dict[str, Any]:
+        steps = max(1, self.config.action_smoothing_steps)
+        actions = self._interpolate_action(action, steps) if steps > 1 else [action]
+        sent_action = None
+        for i, step_action in enumerate(actions):
+            sent_action = self._send_action_once(step_action)
+            if self.config.action_smoothing_duration_s > 0 and i < len(actions) - 1:
+                time.sleep(self.config.action_smoothing_duration_s / (steps - 1))
+
+        return sent_action or action
+
+    def _slow_move_to_startup_pose(self) -> None:
+        startup_pose = self._startup_pose()
+        if not startup_pose:
+            return
+
+        keys = list(self.action_features)
+        current = self.get_observation(with_cameras=False)
+        for side in ("left", "right"):
+            self._last_angles[side] = np.array(
+                [current[f"{side}_joint_{i}.pos"] for i in range(1, 7)]
+            )
+
+        target = dict(current)
+        for joint, value in startup_pose.items():
+            for side in ("left", "right"):
+                target[f"{side}_{joint}.pos"] = value
+        steps = max(int(self.config.startup_pose_duration_s * 50), 1)
+
+        for i in range(1, steps + 1):
+            alpha = i / steps
+            action = {
+                key: float(current[key] + (target[key] - current[key]) * alpha)
+                for key in keys
+            }
+            self._send_action_once(action)
+            time.sleep(self.config.startup_pose_duration_s / steps)
+        time.sleep(max(0.0, self.config.startup_settle_s))
+
+    def _startup_pose(self) -> dict[str, float]:
+        joint_names = self.left_arm.config.joint_names
+        pose = {}
+        for key, value in _STARTUP_POSE.items():
+            if value is None:
+                continue
+            joint = joint_names[int(key.removeprefix("joint_"))]
+            pose[joint] = float(value)
+        return pose
+
+    def _interpolate_action(
+        self, action: dict[str, Any], steps: int
+    ) -> list[dict[str, float]]:
+        current = self.get_observation(with_cameras=False)
+        keys = [k for k in action if k.endswith(".pos")]
+        start = np.array([current[k] for k in keys], dtype=float)
+        target = np.array([action[k] for k in keys], dtype=float)
+        return [
+            {
+                key: float(value)
+                for key, value in zip(keys, start + (target - start) * (i / steps))
+            }
+            for i in range(1, steps + 1)
+        ]
+
+    def _send_action_once(self, action: dict[str, Any]) -> dict[str, Any]:
         left_action = {
             key.removeprefix("left_"): value
             for key, value in action.items()

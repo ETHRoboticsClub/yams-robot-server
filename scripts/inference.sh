@@ -38,6 +38,8 @@ if [ "$DUMP_VIDEO" = "true" ] && [ -z "$FUTURE_VIDEO_DEBUG_DIR" ]; then
     echo "DUMP_VIDEO=true: predicted-future MP4s will land in $FUTURE_VIDEO_DEBUG_DIR"
 fi
 ACTION_STRIDE=${ACTION_STRIDE:-2}
+ACTION_SMOOTH_STEPS=${ACTION_SMOOTH_STEPS:-5}
+ACTION_SMOOTH_DURATION_S=${ACTION_SMOOTH_DURATION_S:-0.16}
 # Set WITH_TELEOP=true to also connect the leader arms (e.g., for emergency
 # takeover or to sanity-check the leader chain). Off by default — the
 # mimic_video policy drives the follower directly and the leader's actions
@@ -50,7 +52,7 @@ WITH_TELEOP=${WITH_TELEOP:-false}
 # Checkpoints loaded by MimicVideoConfig defaults from ./checkpoints/.
 # =============================================================================
 REPO=${REPO:-ETHRC/eval_carton_box_test}
-TASK=${TASK:-Pick up the item and place it in the box}
+TASK=${TASK:-Pick up the item and place it in the box.}
 EPISODE_TIME_S=${EPISODE_TIME_S:-240}
 RESET_TIME_S=${RESET_TIME_S:-10}
 
@@ -134,6 +136,8 @@ uv run python run_record.py \
     "${TELEOP_ARGS[@]}" \
     --robot.left_arm_can_port="$LEFT_CAN" \
     --robot.right_arm_can_port="$RIGHT_CAN" \
+    --robot.action_smoothing_steps="$ACTION_SMOOTH_STEPS" \
+    --robot.action_smoothing_duration_s="$ACTION_SMOOTH_DURATION_S" \
     --display_data=false \
     --dataset.fps="$DATASET_FPS" \
     --dataset.num_episodes="$NUM_EPISODES" \

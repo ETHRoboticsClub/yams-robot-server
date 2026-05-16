@@ -42,7 +42,10 @@
       "Read(//tmp/**)",
       "Bash(unset VIRTUAL_ENV)",
       "Bash(python3 *)",
-      "Bash(/home/ethrc/Desktop/mimic-video/model/.venv/bin/python3 *)"
+      "Bash(/home/ethrc/Desktop/mimic-video/model/.venv/bin/python3 *)",
+      "Bash(.venv/bin/python -c \"import torch; print\\(torch.__version__\\)\")",
+      "Bash(uv pip *)",
+      "Bash(grep -nC2 'startup_pose\\\\|joint_0\\\\|joint_names' /home/ethrc/Desktop/mimic-yams/configs/arms.yaml /home/ethrc/Desktop/mimic-yams/src/lerobot_robot_yams/follower.py)"
     ]
   }
 }
