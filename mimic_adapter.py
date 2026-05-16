@@ -68,7 +68,7 @@ _DEFAULT_WORKER = _HERE / "cosmos_worker.py"
 _DEFAULT_COSMOS_VENV = Path("/home/ethrc/Desktop/mimic-video/model/.venv")
 _DEFAULT_COSMOS_PYTHON = _DEFAULT_COSMOS_VENV / "bin" / "python"
 
-_VIDEO_BACKBONE = "cosmos_ethrc_7000it_fused.pt"
+_VIDEO_BACKBONE = "cosmos_ethrc_7000it_fused-16.pt"
 _ACTION_DECODER = (
     "action_decoder.pt"
 )

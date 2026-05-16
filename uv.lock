@@ -1091,6 +1091,22 @@ wheels = [
 ]
 
 [[package]]
+name = "megatron-core"
+version = "0.17.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "packaging" },
+    { name = "torch", version = "2.7.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
+    { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bc/89/f690c7d282200d6e36078f4bfbb9e6862102105c062fbf9b518c5b72df38/megatron_core-0.17.0.tar.gz", hash = "sha256:ff66c206ed164bc602ff00310388605fac41f284262176e17246a9e94163b205", size = 1385595, upload-time = "2026-04-16T20:22:32.079Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/f8/175724fe6ff44c350b59c169c94dd3748f082bdb1a42684c1a6e698d8223/megatron_core-0.17.0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:326dab6f084e65995d87e7f93721c80639b78de1f8690a5f90566c53aef57a5b", size = 1717190, upload-time = "2026-04-16T20:22:24.36Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/ad/1c15b4078ad9fc99ba347e112bdf5082d182473f729d906e0c99b8a1f5fb/megatron_core-0.17.0-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:0cbacf043603f9dc2735310e1b1dcd5c076c02caab13849c2d2fe6a99cbea4f6", size = 1725087, upload-time = "2026-04-16T20:22:27.517Z" },
+]
+
+[[package]]
 name = "mergedeep"
 version = "1.3.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2269,7 +2285,7 @@ dependencies = [
     { name = "typing-extensions", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:0b64f7d0a6f2a739ed052ba959f7b67c677028c9566ce51997f9f90fe573ddaa" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.7.1%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:0b64f7d0a6f2a739ed052ba959f7b67c677028c9566ce51997f9f90fe573ddaa", upload-time = "2025-06-03T18:31:26Z" },
 ]
 
 [[package]]
@@ -2315,7 +2331,7 @@ dependencies = [
     { name = "torch", version = "2.7.1+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.22.1%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:f64ef9bb91d71ab35d8384912a19f7419e35928685bc67544d58f45148334373" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.22.1%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:f64ef9bb91d71ab35d8384912a19f7419e35928685bc67544d58f45148334373", upload-time = "2025-06-03T18:37:28Z" },
 ]
 
 [[package]]
@@ -2558,6 +2574,7 @@ dependencies = [
     { name = "lerobot-camera-zed" },
     { name = "lerobot-robot-yams" },
     { name = "lerobot-teleoperator-gello" },
+    { name = "megatron-core" },
     { name = "opencv-python" },
     { name = "pyrealsense2", marker = "sys_platform == 'linux'" },
     { name = "pyyaml" },
@@ -2582,6 +2599,7 @@ requires-dist = [
     { name = "lerobot-camera-zed", editable = "src/lerobot_camera_zed" },
     { name = "lerobot-robot-yams", editable = "src/lerobot_robot_yams" },
     { name = "lerobot-teleoperator-gello", editable = "src/lerobot_teleoperator_gello" },
+    { name = "megatron-core", specifier = ">=0.17.0" },
     { name = "opencv-python" },
     { name = "pyrealsense2", marker = "sys_platform == 'linux'", specifier = ">=2.57.7.10387" },
     { name = "pyyaml", specifier = ">=6.0" },
