@@ -15,7 +15,7 @@ pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py|run_record.py" | gre
 YAML=configs/arms.yaml
 
 # Command used
-#sudo  DATA_DIR="$HOME/.cache/huggingface/lerobot"  DUMP_VIDEO=true STOP_VIDEO_DENOISING_STEP=1 bash scripts/inference.sh
+#sudo DATA_DIR="$HOME/.cache/huggingface/lerobot" DUMP_VIDEO=false STOP_VIDEO_DENOISING_STEP=2 ACTION_HOLD_STEPS=3 bash scripts/inference.sh
 
 
 # DATA_DIR is resolved by the cosmos dataloading config (${oc.env:DATA_DIR});
@@ -51,7 +51,14 @@ if [ "$DUMP_VIDEO" = "true" ] && [ -z "$FUTURE_VIDEO_DEBUG_DIR" ]; then
     mkdir -p "$FUTURE_VIDEO_DEBUG_DIR"
     echo "DUMP_VIDEO=true: predicted-future MP4s will land in $FUTURE_VIDEO_DEBUG_DIR"
 fi
+# The action decoder outputs 15 joint targets at 5 Hz (policy_io
+# joint_state_lowdim horizon=15, target_frequency=5) and lerobot also ticks at
+# 5 Hz, so the actions are already at execution rate: stride MUST be 1 (stride=2
+# drops every other action -> 2x too fast). Slow down via ACTION_HOLD_STEPS.
 ACTION_STRIDE=${ACTION_STRIDE:-1}
+# Playback slowdown: each action is held/interpolated over this many 5 Hz ticks.
+# 1 = real-time (training speed), 2 = half speed, 3 = third speed.
+ACTION_HOLD_STEPS=${ACTION_HOLD_STEPS:-2}
 # Set WITH_TELEOP=true to also connect the leader arms (e.g., for emergency
 # takeover or to sanity-check the leader chain). Off by default — the
 # mimic_video policy drives the follower directly and the leader's actions
@@ -165,6 +172,7 @@ uv run python run_record.py \
     --policy.task_prompt="$TASK" \
     --policy.stop_video_denoising_step="$STOP_VIDEO_DENOISING_STEP" \
     --policy.action_stride="$ACTION_STRIDE" \
+    --policy.action_hold_steps="$ACTION_HOLD_STEPS" \
     --policy.future_video_debug_dir="$FUTURE_VIDEO_DEBUG_DIR" \
     --policy.future_video_dump_every_n="$FUTURE_VIDEO_DUMP_EVERY_N" \
     --play_sounds=false &

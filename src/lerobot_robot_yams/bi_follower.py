@@ -40,6 +40,9 @@ class BiYamsFollowerConfig(RobotConfig):
         default_factory=lambda: np.array(_COLLISION["max_joint_step"])
     )
     cameras: dict[str, CameraConfig] = field(default_factory=dict)
+    # Follower-side command smoothing (upsample ~5 Hz policy stream to smooth_hz).
+    smooth: bool = True
+    smooth_hz: float = 30.0
 
 
 class BiYamsFollower(Robot):
@@ -59,11 +62,15 @@ class BiYamsFollower(Robot):
             can_port=self.config.left_arm_can_port,
             server_port=self.config.left_arm_server_port,
             side="left",
+            smooth=self.config.smooth,
+            smooth_hz=self.config.smooth_hz,
         )
         right_arm_config = YamsFollowerConfig(
             can_port=self.config.right_arm_can_port,
             server_port=self.config.right_arm_server_port,
             side="right",
+            smooth=self.config.smooth,
+            smooth_hz=self.config.smooth_hz,
         )
 
         self.cameras = make_cameras_from_configs(config.cameras)

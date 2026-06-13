@@ -95,8 +95,11 @@ class MimicVideoConfig(PreTrainedConfig):
     num_sampling_steps: int = 35
     stop_video_denoising_step: int | None = None
     num_execute_actions: int = 10
-    # Training emits 30 actions at 10 Hz (3 s); lerobot ticks at 5 Hz, so
-    # consume every other action to keep the wall-clock playback rate matched.
+    # The action decoder outputs 15 joint targets at 5 Hz (3 s; policy_io
+    # joint_state_lowdim horizon=15, target_frequency=5) and lerobot also ticks
+    # at 5 Hz, so the actions are already at execution rate -> stride 1 is
+    # real-time. stride=2 would drop every other action and run 2x too fast;
+    # slow playback down via action_hold_steps instead.
     action_stride: int = 1
 
     # Cuda graphs allocate ~1 GiB of private pool. On a 32 GiB card this
