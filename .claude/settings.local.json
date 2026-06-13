@@ -42,7 +42,25 @@
       "Read(//tmp/**)",
       "Bash(unset VIRTUAL_ENV)",
       "Bash(python3 *)",
-      "Bash(/home/ethrc/Desktop/mimic-video/model/.venv/bin/python3 *)"
+      "Bash(/home/ethrc/Desktop/mimic-video/model/.venv/bin/python3 *)",
+      "Bash(/home/ethrc/Desktop/mimic-video/model/.venv/bin/pip show *)",
+      "Bash(uv sync *)",
+      "Bash(mkdir -p logs)",
+      "Bash(.venv/bin/python -u -c ' *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(sed -n '220,260p' /home/ethrc/Desktop/mimic-yams/cosmos_worker.py)",
+      "Bash(sed -n '60,135p' model/imaginaire/auxiliary/text_encoder.py)",
+      "Bash(awk '/def _cosmos_subprocess_env/,/^[^ ]|^def [a-zA-Z]/' mimic_adapter.py)",
+      "Bash(awk '/class Video2World2ActionPipeline/,0' cosmos_predict2/pipelines/world2action.py)",
+      "Bash(pkill -9 -f 'rl-teleop')",
+      "Bash(echo \"pkill exit=$? \\(0=killed something, 1=nothing matched\\)\")",
+      "Bash(nvidia-smi --query-gpu=name,memory.total,memory.used --format=csv)",
+      "Bash(grep -vE \"Generating world|it/s\\\\]$\" /home/ethrc/Desktop/mimic-yams/tmp/profile_out.log)",
+      "Bash(pkill -f profile_inference.py)",
+      "Bash(env)",
+      "Bash(.venv/bin/python -V)",
+      "Bash(echo \"venv python: $\\(.venv/bin/python -V 2>&1\\)\")",
+      "Bash(echo \"exit $?\")"
     ]
   }
 }

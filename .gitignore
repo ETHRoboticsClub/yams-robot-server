@@ -230,3 +230,4 @@ src/lerobot_camera_zed/pyzed
 .camera-signatures.json
 tommaso/
 checkpoints/
+tmp/

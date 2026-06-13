@@ -51,10 +51,7 @@ _COSMOS_DEFAULT_NEGATIVE_PROMPT = (
 
 # Default experiment name from mimic_adapter.MimicVideoConfig — drives the T5
 # config the worker will use at inference time.
-_DEFAULT_EXPERIMENT = (
-    "w2a_bi_yams_v2w_bridge_lora_rank256_lr1.778e-04_bsz64_iter_000070043_fused"
-    "_lr1.000e-04_layer20_bsz256"
-)
+POLICY_PREPROCESSOR_DEFAULT_NAME_DEFAULT_EXPERIMENT = "w2a_yams_v2w_pretrained_cosmos_lr1.000e-04_layer20_bsz128"
 
 
 def main() -> int:

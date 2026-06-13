@@ -220,11 +220,11 @@ class _CachedTextEncoder(torch.nn.Module):
 def _t5_cache_targets(task_prompt: str) -> list[str]:
     """Prompts whose embeddings must be cached to skip the T5 load.
 
-    Always includes the task prompt. Also includes the debug-dump negative
-    prompt so the DUMP_VIDEO path (which goes through encode_prompts on the
-    cached encoder) doesn't fail mid-run if a user flips DUMP_VIDEO on.
+    Just the task prompt. Both the live action path and the DUMP_VIDEO debug
+    dump run with negative_prompt="" (no negative prompt, guidance=0.0), so the
+    cached text encoder is never asked to encode anything but the task prompt.
     """
-    return [task_prompt, _COSMOS_DEFAULT_NEGATIVE_PROMPT]
+    return [task_prompt]
 
 
 def load_pipeline(args):
@@ -240,8 +240,10 @@ def load_pipeline(args):
         _t5_cache.load(p) is not None for p in cache_targets
     )
     if t5_cache_hit:
+        hit_files = ", ".join(_t5_cache.cache_path(p).name for p in cache_targets)
         print(
-            "[cosmos_worker] T5 cache HIT — skipping T5-11B load",
+            f"[cosmos_worker] T5 cache HIT — skipping T5-11B load "
+            f"(using cached embeddings in {_t5_cache.CACHE_DIR}: {hit_files})",
             file=sys.stderr, flush=True,
         )
     elif args.task_prompt:
@@ -410,19 +412,20 @@ def main():
                 # (run all denoising steps) so we can VAE-decode the final
                 # latent into pixels.
                 #
-                # IMPORTANT: do NOT pass guidance=0.0 / negative_prompt="" here.
-                # With CFG that collapses the output to the unconditional
-                # branch on an empty prompt, which decodes to pure noise
-                # past the conditioning frames (see the comment on
-                # _COSMOS_DEFAULT_NEGATIVE_PROMPT above).
+                # Mirror the live action path exactly: it conditions on the
+                # task prompt only, with negative_prompt="" and guidance=0.0
+                # (see video2world2action.py). We use NO negative prompt; with
+                # negative_prompt="" the pipeline skips the neg-embedding encode
+                # (_get_data_batch_input gates it on `if negative_prompt:`), so
+                # the cached text encoder is never asked for an uncached prompt.
                 T = video.shape[2]
                 with torch.no_grad():
                     decoded = pipeline.video2world_pipeline.generate_video(
                         vid_input=video,
                         num_latent_conditional_frames=1 if T == 1 else 2,
                         prompt=msg["prompt"],
-                        negative_prompt=_COSMOS_DEFAULT_NEGATIVE_PROMPT,
-                        guidance=_COSMOS_DEFAULT_GUIDANCE,
+                        negative_prompt="",
+                        guidance=0.0,
                         num_sampling_step=msg["num_sampling_step"],
                         return_context_at_step=None,
                         use_cuda_graphs=msg.get("use_cuda_graphs", True),

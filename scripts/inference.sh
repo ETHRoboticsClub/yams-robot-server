@@ -13,6 +13,15 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py|run_record.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
+# DATA_DIR is resolved by the cosmos dataloading config (${oc.env:DATA_DIR});
+# only the training dataloader uses it, but config composition resolves it at
+# worker startup, so it must be set. Exported so mimic_adapter forwards it to
+# the cosmos subprocess (and so it survives `sudo`).
+# export DATA_DIR=${DATA_DIR:-/home/ethrc/.cache/mimic_lerobot_t5}
+# Pin the T5 embedding cache to an absolute path so the cosmos worker finds it
+# regardless of HOME (e.g. under `sudo`, where HOME=/root). Exported so
+# mimic_adapter forwards it to the cosmos subprocess.
+export MIMIC_T5_CACHE_DIR=${MIMIC_T5_CACHE_DIR:-/home/ethrc/.cache/mimic-yams/t5_embeddings}
 RESUME=${RESUME:-false}
 RECORD=${RECORD:-false}
 PUSH_TO_HUB=${PUSH_TO_HUB:-false}
@@ -37,7 +46,7 @@ if [ "$DUMP_VIDEO" = "true" ] && [ -z "$FUTURE_VIDEO_DEBUG_DIR" ]; then
     mkdir -p "$FUTURE_VIDEO_DEBUG_DIR"
     echo "DUMP_VIDEO=true: predicted-future MP4s will land in $FUTURE_VIDEO_DEBUG_DIR"
 fi
-ACTION_STRIDE=${ACTION_STRIDE:-2}
+ACTION_STRIDE=${ACTION_STRIDE:-1}
 # Set WITH_TELEOP=true to also connect the leader arms (e.g., for emergency
 # takeover or to sanity-check the leader chain). Off by default — the
 # mimic_video policy drives the follower directly and the leader's actions
@@ -50,7 +59,7 @@ WITH_TELEOP=${WITH_TELEOP:-false}
 # Checkpoints loaded by MimicVideoConfig defaults from ./checkpoints/.
 # =============================================================================
 REPO=${REPO:-ETHRC/eval_carton_box_test}
-TASK=${TASK:-Pick up the item and place it in the box}
+TASK=${TASK:-push the box to the right with the right arm}
 EPISODE_TIME_S=${EPISODE_TIME_S:-240}
 RESET_TIME_S=${RESET_TIME_S:-10}
 

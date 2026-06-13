@@ -68,14 +68,11 @@ _DEFAULT_WORKER = _HERE / "cosmos_worker.py"
 _DEFAULT_COSMOS_VENV = Path("/home/ethrc/Desktop/mimic-video/model/.venv")
 _DEFAULT_COSMOS_PYTHON = _DEFAULT_COSMOS_VENV / "bin" / "python"
 
-_VIDEO_BACKBONE = "cosmos_ethrc_7000it_fused-16.pt"
+_VIDEO_BACKBONE = "v2w-latest.pt"
 _ACTION_DECODER = (
-    "action_decoder.pt"
+    "ad-latest.pt"
 )
-_EXPERIMENT = (
-    "w2a_bi_yams_v2w_bridge_lora_rank256_lr1.778e-04_bsz64_iter_000070043_fused"
-    "_lr1.000e-04_layer20_bsz256"
-)
+_EXPERIMENT = "w2a_yams_v2w_pretrained_cosmos_lr1.000e-04_layer20_bsz128"
 
 
 @PreTrainedConfig.register_subclass("mimic_video")
@@ -97,16 +94,25 @@ class MimicVideoConfig(PreTrainedConfig):
     target_fps: int = 5
     num_sampling_steps: int = 35
     stop_video_denoising_step: int | None = None
-    num_execute_actions: int = 15
+    num_execute_actions: int = 10
     # Training emits 30 actions at 10 Hz (3 s); lerobot ticks at 5 Hz, so
     # consume every other action to keep the wall-clock playback rate matched.
-    action_stride: int = 2
+    action_stride: int = 1
 
     # Cuda graphs allocate ~1 GiB of private pool. On a 32 GiB card this
     # bumps the VAE decoder over the edge during the first decode → OOM.
-    # Leave off until we have headroom (or run on a 48 GiB+ GPU).
-    use_cuda_graphs: bool = False
+    # ~1 GiB private pool; enabled for inference speed (kills per-kernel launch
+    # overhead on the iterative video+action denoise loops). If this OOMs on a
+    # tight 32 GiB card, set back to False.
+    use_cuda_graphs: bool = True
     skip_warmup: bool = False
+
+    # When True (default), the next chunk is inferred in a background thread
+    # during the current chunk's execution window to hide video-DiT latency.
+    # Set False to wait until the current chunk is fully executed, then infer
+    # the next chunk synchronously from the freshest observation (reintroduces
+    # a between-chunk pause — see latency notes).
+    prefetch: bool = True
 
     action_hold_steps: int = 1
 
@@ -259,7 +265,7 @@ class _CosmosClient:
         future_video_dump_path: str | None = None,
     ) -> np.ndarray:
         self._write(
-            {
+            obj={
                 "type": "infer",
                 "video": _pack_array(video),
                 "state": _pack_array(state),
@@ -390,8 +396,10 @@ class MimicVideoPolicy(PreTrainedPolicy):
                     self._action_buf = self._query_pipeline()
                 # Batch just refilled — launch next inference immediately so it
                 # runs during this batch's execution window (~3 s) rather than
-                # blocking after the last action is consumed.
-                if self._prefetch_thread is None:
+                # blocking after the last action is consumed. Disabled when
+                # prefetch is off: the next chunk is then inferred synchronously
+                # once this batch drains.
+                if self.cfg.prefetch and self._prefetch_thread is None:
                     self._launch_prefetch()
             self._latch_next_action(self._action_buf.pop(0), state)
             self._hold_remaining = max(1, self.cfg.action_hold_steps)
