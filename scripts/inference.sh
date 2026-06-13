@@ -13,6 +13,11 @@ fi
 pgrep -f "lerobot-record|lerobot-teleoperate|yams_server.py|run_record.py" | grep -vx "$$" | xargs -r kill
 
 YAML=configs/arms.yaml
+
+# Command used
+#sudo  DATA_DIR="$HOME/.cache/huggingface/lerobot"  DUMP_VIDEO=true STOP_VIDEO_DENOISING_STEP=1 bash scripts/inference.sh
+
+
 # DATA_DIR is resolved by the cosmos dataloading config (${oc.env:DATA_DIR});
 # only the training dataloader uses it, but config composition resolves it at
 # worker startup, so it must be set. Exported so mimic_adapter forwards it to
