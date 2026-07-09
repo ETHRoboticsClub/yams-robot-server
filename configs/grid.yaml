@@ -1,0 +1,16 @@
+# Grid cell -> saved joint waypoints (14-DoF: L1..L6,Lgrip, R1..R6,Rgrip).
+#
+# NOT YET CALIBRATED. Fill this by teleoperating the arm to each cell and
+# capturing joints:  python scripts/calibrate_grid.py
+#
+# Until then, place runs only in mock mode (the loop still works end-to-end).
+# hover = pose above the cell; place = lowered into the cell; then gripper opens.
+
+arm: right
+gripper_open: 1.0
+gripper_closed: 0.0
+
+cells: {}
+  # "0,0":
+  #   hover: [0,0,0,0,0,0,0, 0,0,0,0,0,0,0]
+  #   place: [0,0,0,0,0,0,0, 0,0,0,0,0,0,0]

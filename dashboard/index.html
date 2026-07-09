@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bühler · Autonomous Kitting Cell</title>
+<style>
+  :root{
+    --bg:#0b0e13;--panel:#11161f;--panel2:#151c28;--line:#1f2937;
+    --ink:#e7edf5;--dim:#9aa7ba;--faint:#64748b;
+    --acc:#4cc2ff;--acc2:#7c5cff;--good:#39d98a;--warn:#ffb454;--bad:#ff6b6b;
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:
+      radial-gradient(1100px 500px at 85% -10%,rgba(76,194,255,.08),transparent 60%),
+      radial-gradient(900px 500px at 0% 10%,rgba(124,92,255,.07),transparent 55%),var(--bg);
+    color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px}
+  header{display:flex;align-items:center;justify-content:space-between;
+    padding-bottom:16px;border-bottom:1px solid var(--line);margin-bottom:20px}
+  .brand{display:flex;flex-direction:column;gap:4px}
+  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--acc)}
+  h1{margin:0;font-size:24px;letter-spacing:-.01em}
+  .state{font-family:var(--mono);font-size:13px;padding:8px 16px;border-radius:999px;
+    border:1px solid var(--line);background:var(--panel);color:var(--dim);text-transform:uppercase;letter-spacing:.1em}
+  .state.running,.state.picking{color:var(--acc);border-color:rgba(76,194,255,.4)}
+  .state.placing{color:var(--acc2);border-color:rgba(124,92,255,.4)}
+  .state.done{color:var(--good);border-color:rgba(57,217,138,.4)}
+  .cols{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+  @media(max-width:900px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{margin:0 0 12px;font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--faint)}
+  .feed{position:relative;border-radius:12px;overflow:hidden;background:#05070b;aspect-ratio:4/3}
+  .feed img{width:100%;height:100%;object-fit:contain;display:block}
+  .feed .noimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--faint);font-family:var(--mono);font-size:13px}
+  .now{display:flex;flex-direction:column;gap:6px}
+  .now .part{font-family:var(--mono);font-size:26px;color:var(--ink);letter-spacing:.02em}
+  .now .name{color:var(--dim);font-size:14px}
+  .now .arrow{color:var(--acc);font-family:var(--mono);font-size:15px;margin-top:6px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:8px}
+  .stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .stat .v{font-size:24px;font-family:var(--mono)}
+  .stat .l{font-size:10px;font-family:var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin-top:3px}
+  .stat.good .v{color:var(--good)} .stat.acc .v{color:var(--acc)} .stat.bad .v{color:var(--bad)}
+  .grid{display:grid;gap:10px;margin-top:4px}
+  .cell{border:1px solid var(--line);border-radius:12px;padding:14px 12px;min-height:88px;
+    background:var(--panel2);display:flex;flex-direction:column;justify-content:space-between;
+    transition:.35s;position:relative}
+  .cell .cc{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .cell .cp{font-family:var(--mono);font-size:14px;color:var(--dim);margin-top:6px;word-break:break-all}
+  .cell.filled{background:linear-gradient(180deg,rgba(57,217,138,.14),rgba(57,217,138,.03));
+    border-color:rgba(57,217,138,.5)}
+  .cell.filled .cp{color:var(--ink)}
+  .cell .tick{position:absolute;top:10px;right:12px;color:var(--good);font-size:18px;opacity:0;transform:scale(.6);transition:.35s}
+  .cell.filled .tick{opacity:1;transform:scale(1)}
+  .cell.active{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .log{font-family:var(--mono);font-size:12px;color:var(--dim);max-height:150px;overflow:auto;line-height:1.7}
+  .log .t{color:var(--faint)}
+  .bar{height:6px;border-radius:999px;background:var(--panel2);overflow:hidden;margin-top:12px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--good));width:0;transition:.4s}
+  .foot{margin-top:18px;color:var(--faint);font-family:var(--mono);font-size:11px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="kick">Autonomous Kitting Cell · Live</span>
+      <h1>Bühler · Messy box → sorted kit</h1>
+    </div>
+    <div id="state" class="state">offline</div>
+  </header>
+
+  <div class="cols">
+    <div class="card">
+      <h2>Camera</h2>
+      <div class="feed"><img id="frame" alt=""><div class="noimg" id="noimg">waiting for feed…</div></div>
+      <div class="bar"><i id="prog"></i></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="card">
+        <h2>Now handling</h2>
+        <div class="now">
+          <div class="part" id="curPart">—</div>
+          <div class="name" id="curName"></div>
+          <div class="arrow" id="curCell"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Throughput</h2>
+        <div class="stats">
+          <div class="stat good"><div class="v" id="sPlaced">0</div><div class="l">Placed</div></div>
+          <div class="stat acc"><div class="v" id="sPicked">0</div><div class="l">Picked</div></div>
+          <div class="stat"><div class="v" id="sRead">0</div><div class="l">Read OK</div></div>
+          <div class="stat bad"><div class="v" id="sErr">0</div><div class="l">Errors</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2>Destination kit</h2>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="card" style="margin-top:18px">
+    <h2>Activity</h2>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="foot">Optional visual layer · reads best-effort telemetry · never blocks the pipeline</div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function cellKey(c){ return c ? c[0]+","+c[1] : null; }
+
+function renderGrid(st){
+  const plan = st.plan || {};        // "r,c" -> identity
+  const names = st.part_names || {};
+  const placed = {};
+  (st.placed||[]).forEach(p => { if(p.cell) placed[p.cell[0]+","+p.cell[1]] = p.identity; });
+  const cur = st.current || {};
+  const activeKey = cellKey(cur.cell);
+
+  // grid shape: from status.grid, else infer from plan + placed
+  let rows = st.grid?.rows, cols = st.grid?.cols;
+  if(!rows || !cols){
+    let mr=1, mc=2;
+    Object.keys({...plan, ...placed}).forEach(k=>{const [r,c]=k.split(",").map(Number);mr=Math.max(mr,r);mc=Math.max(mc,c);});
+    rows=mr+1; cols=mc+1;
+  }
+  const g = $("grid");
+  g.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  let html="";
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const k=r+","+c;
+    const filledId = placed[k];
+    const plannedId = plan[k];
+    const id = filledId || plannedId || "";
+    const nm = names[id] || "";
+    const cls = "cell"+(filledId?" filled":"")+(k===activeKey?" active":"");
+    html += `<div class="${cls}"><div><span class="cc">cell ${r}·${c}</span>
+      <div class="cp">${id||"—"}</div><div class="cc" style="margin-top:2px">${nm}</div></div>
+      <div class="tick">✓</div></div>`;
+  }
+  g.innerHTML = html;
+}
+
+async function tick(){
+  let st={};
+  try{ st = await (await fetch("/status.json?t="+Date.now())).json(); }catch(e){}
+  const state = (st.state||"offline");
+  const se=$("state"); se.textContent=state; se.className="state "+state;
+
+  const cur = st.current||{};
+  $("curPart").textContent = cur.identity || "—";
+  $("curName").textContent = (st.part_names||{})[cur.identity] || "";
+  $("curCell").textContent = cur.cell ? ("→ cell "+cur.cell[0]+"·"+cur.cell[1]+(cur.method?"  ["+cur.method+"]":"")) : "";
+
+  const s = st.stats||{};
+  $("sPlaced").textContent=s.placed||0;
+  $("sPicked").textContent=s.picked||0;
+  $("sRead").textContent=s.read_ok||0;
+  $("sErr").textContent=s.errors||0;
+
+  const total = Object.keys(st.plan||{}).length || ((s.placed||0)+ (st.grid? st.grid.rows*st.grid.cols:0));
+  $("prog").style.width = total ? Math.min(100,100*(s.placed||0)/total)+"%" : "0%";
+
+  renderGrid(st);
+
+  const log=$("log");
+  log.innerHTML = (st.events||[]).slice().reverse().map(e=>{
+    const t = new Date(e.ts*1000).toLocaleTimeString();
+    return `<div><span class="t">${t}</span> · ${e.msg}</div>`;
+  }).join("");
+
+  // refresh frame
+  const img=$("frame"), no=$("noimg");
+  const probe=new Image();
+  probe.onload=()=>{img.src=probe.src; img.style.display="block"; no.style.display="none";};
+  probe.onerror=()=>{ no.style.display="flex"; };
+  probe.src="/frame.jpg?t="+Date.now();
+}
+tick(); setInterval(tick, 500);
+</script>
+</body>
+</html>

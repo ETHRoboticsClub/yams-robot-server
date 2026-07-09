@@ -1,0 +1,65 @@
+# Sorting pipeline config (Approach B — Hybrid).
+# The "which cell" brain lives here: part number -> [row, col]. Editing this map
+# is how you add a SKU or remap the kit. No retraining, ever.
+
+backend: mock          # mock | real
+pick_mode: mock        # mock | policy   (policy needs an ACT checkpoint, M2)
+policy_path: null      # e.g. /home/.../checkpoints/act/sort/checkpoints/last
+
+reading:
+  method: barcode          # barcode | barcode+ocr   (demo/sim path)
+  part_pattern: '[A-Z]{2,4}-\d{4,5}-\d{3}'   # UNN-10015-007, MDDY-11065-001
+  upscale_retries: [1.0, 1.5, 2.0]
+  max_read_attempts: 4
+
+# --- identity via the fixed vertical scan camera (REAL mode) --------------
+# FINDING (2026-07-09): at full-mat framing the Code128 barcodes are ~4-6x under
+# the ~800px decode floor and no upscale recovers them, but the human-readable
+# part number OCRs at 0.92-0.996 on the real labels. So real-mode identity = OCR,
+# kept safe by (1) the dashed part_pattern, (2) the closed parts_to_cell SKU set,
+# (3) the abstain threshold. A packet read below threshold or outside the set is
+# flagged for re-read (present-to-wrist / human), never placed.
+scan:
+  part_pattern: '[A-Z]{2,4}-\d{4,5}-\d{3}'
+  min_conf: 0.80
+  dedup_px: 90
+  camera: realsense_color   # fixed vertical scan cam (RealSense D435i color node,
+                            # auto-detected — node shifts on replug, never hardcode).
+                            # Validated v4l2: exp=150 gain=48 contrast=75 sharpness=90.
+  width: 1280
+  height: 720
+
+grid:
+  rows: 2
+  cols: 3
+  file: configs/grid.yaml
+
+# The kit, READ FROM THE CAMERA (2026-07-09). 5 unique SKUs across 8 bags.
+# part_qty = pieces per bag ("N ST" printed on the label) — a fixed property of
+# the SKU, so it comes from here, not from per-frame OCR.
+# cell assignments below are a PROPOSED read-order layout — confirm/remap freely.
+parts_to_cell:
+  UNN-16022-009: [0, 0]     # Blindniet D4.0x12.5 Al        (4 ST) x3 bags
+  UNN-10126-151: [0, 1]     # Fluegelmutter M8 nichtrostend (1 ST) x1
+  UNN-10015-007: [0, 2]     # Sechskantschraube M6x10       (8 ST) x2
+  MDDY-11065-001: [1, 0]    # Kappe                         (1 ST) x1
+  UNN-10015-231: [1, 1]     # Sechskantflanschschraube M6   (2 ST) x1
+  # [1, 2] left free — spare / pre-filled cell (confirm)
+
+part_qty:
+  UNN-16022-009: 4
+  UNN-10126-151: 1
+  UNN-10015-007: 8
+  MDDY-11065-001: 1
+  UNN-10015-231: 2
+
+part_names:
+  UNN-16022-009: Blindniet D4.0x12.5 Al
+  UNN-10126-151: Fluegelmutter M8 nichtrostend
+  UNN-10015-007: Sechskantschraube M6x10
+  MDDY-11065-001: Kappe
+  UNN-10015-231: Sechskantflanschschraube M6
+
+telemetry:
+  enabled: true
+  dir: outputs/sorting
